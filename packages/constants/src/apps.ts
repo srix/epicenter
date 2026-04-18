@@ -1,42 +1,26 @@
 /**
- * Produces a map of all Epicenter applications with their metadata. Currently only includes the URL,
- * which varies depending on the environment (development or production).
+ * Single source of truth for all Epicenter app URLs and ports.
  *
- * These URLs are reused in Vite, Node, and Cloudflare to properly access specific app URLs.
+ * Each app declares its dev port and production URLs. The first URL in
+ * `urls` is the canonical production URL (used by Vite prod builds).
+ * All URLs are included in CORS and trusted origins.
+ *
+ * To add an app: add an entry here. TypeScript enforces that every
+ * consumer picks it up automatically.
  */
-export const createApps = (env: 'development' | 'production') => {
-	const isProduction = env === 'production';
-	return {
-		/**
-		 * Main API service for the application ecosystem (includes auth)
-		 */
-		API: {
-			URL: isProduction ? 'https://api.epicenter.so' : 'http://localhost:8787',
-		},
-		/**
-		 * Main epicenter.sh web application
-		 */
-		SH: {
-			URL: isProduction ? 'https://epicenter.sh' : 'http://localhost:5173',
-		},
-		/**
-		 * Whispering audio transcription application
-		 */
-		AUDIO: {
-			URL: isProduction
-				? 'https://whispering.epicenter.so'
-				: 'http://localhost:1420',
-		},
-	} as const;
-};
 
-/**
- * Derives all URLs from createApps and returns them as an array.
- *
- * Useful for:
- * - CORS configuration
- * - Security policies
- * - Any scenario requiring a list of all service endpoints
- */
-export const createAppUrls = (env: 'development' | 'production') =>
-	Object.values(createApps(env)).map((app) => app.URL);
+export const APPS = {
+	API: { port: 8787, urls: ['https://api.epicenter.so'] },
+	SH: { port: 5173, urls: ['https://epicenter.sh'] },
+	AUDIO: { port: 1420, urls: ['https://whispering.epicenter.so'] },
+	FUJI: { port: 5174, urls: ['https://fuji.epicenter.so'] },
+	HONEYCRISP: { port: 5175, urls: ['https://honeycrisp.epicenter.so'] },
+	OPENSIDIAN: {
+		port: 5176,
+		urls: ['https://opensidian.com', 'https://opensidian.epicenter.so'],
+	},
+	ZHONGWEN: { port: 8888, urls: ['https://zhongwen.epicenter.so'] },
+	DASHBOARD: { port: 5178, urls: ['https://api.epicenter.so'] },
+} as const;
+
+export type AppId = keyof typeof APPS;

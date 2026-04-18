@@ -1,21 +1,22 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
-	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
-	import { rpc } from '$lib/query';
-	import type { TransformationRun } from '$lib/services/isomorphic/db';
-	import { viewTransition } from '$lib/utils/viewTransitions';
+	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
+	import * as Card from '@epicenter/ui/card';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
+	import * as Empty from '@epicenter/ui/empty';
+	import { Label } from '@epicenter/ui/label';
+	import * as Table from '@epicenter/ui/table';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
-	import { Badge } from '@epicenter/ui/badge';
-	import * as Empty from '@epicenter/ui/empty';
-	import { Button } from '@epicenter/ui/button';
-	import * as Card from '@epicenter/ui/card';
-	import { Label } from '@epicenter/ui/label';
-	import * as Table from '@epicenter/ui/table';
 	import { format } from 'date-fns';
+	import CopyablePre from '$lib/components/copyable/CopyablePre.svelte';
+	import TextPreviewDialog from '$lib/components/copyable/TextPreviewDialog.svelte';
+	import { rpc } from '$lib/query';
+	import type { TransformationRun } from '$lib/state/transformation-runs.svelte';
+	import { transformationRuns } from '$lib/state/transformation-runs.svelte';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 
 	let { runs }: { runs: TransformationRun[] } = $props();
 
@@ -33,9 +34,7 @@
 {#if runs.length === 0}
 	<Empty.Root class="h-full">
 		<Empty.Header>
-			<Empty.Media variant="icon">
-				<PlayIcon />
-			</Empty.Media>
+			<Empty.Media variant="icon"> <PlayIcon /> </Empty.Media>
 			<Empty.Title>No runs yet</Empty.Title>
 			<Empty.Description>
 				When you run a transformation, the results will appear here.
@@ -53,14 +52,9 @@
 						title: 'Clear all transformation runs?',
 						description: `This will permanently delete all ${runs.length} run${runs.length !== 1 ? 's' : ''} from this history. This action cannot be undone.`,
 						confirm: { text: 'Delete All', variant: 'destructive' },
-						onConfirm: async () => {
-							const { error } = await rpc.db.runs.delete(runs);
-							if (error) {
-								rpc.notify.error({
-									title: 'Failed to delete runs',
-									description: error.message,
-								});
-								throw error;
+						onConfirm: () => {
+							for (const run of runs) {
+						transformationRuns.delete(run.id);
 							}
 							rpc.notify.success({
 								title: `${runs.length} run${runs.length !== 1 ? 's' : ''} deleted successfully`,
@@ -103,13 +97,9 @@
 								</Button>
 							</Table.Cell>
 							<Table.Cell>
-								<Badge variant={`status.${run.status}`}>
-									{run.status}
-								</Badge>
+								<Badge variant={`status.${run.status}`}> {run.status} </Badge>
 							</Table.Cell>
-							<Table.Cell>
-								{formatDate(run.startedAt)}
-							</Table.Cell>
+							<Table.Cell> {formatDate(run.startedAt)} </Table.Cell>
 							<Table.Cell>
 								{run.completedAt ? formatDate(run.completedAt) : '-'}
 							</Table.Cell>
@@ -123,21 +113,14 @@
 											title: 'Delete transformation run?',
 											description: `This will permanently delete the run from ${formatDate(run.startedAt)}. This action cannot be undone.`,
 											confirm: { text: 'Delete', variant: 'destructive' },
-											onConfirm: async () => {
-												const { error } = await rpc.db.runs.delete(run);
-												if (error) {
-													rpc.notify.error({
-														title: 'Failed to delete run',
-														description: error.message,
-													});
-													throw error;
-												}
-												rpc.notify.success({
-													title: 'Run deleted successfully',
-													description:
-														'Your transformation run has been deleted.',
-												});
-											},
+										onConfirm: () => {
+						transformationRuns.delete(run.id);
+											rpc.notify.success({
+												title: 'Run deleted successfully',
+												description:
+													'Your transformation run has been deleted.',
+											});
+										},
 										});
 									}}
 								>

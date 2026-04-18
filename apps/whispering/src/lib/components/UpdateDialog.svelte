@@ -59,20 +59,21 @@
 </script>
 
 <script lang="ts">
-	import * as Dialog from '@epicenter/ui/dialog';
+	import * as Alert from '@epicenter/ui/alert';
 	import { Button } from '@epicenter/ui/button';
+	import * as Dialog from '@epicenter/ui/dialog';
+	import { Link } from '@epicenter/ui/link';
 	import { Progress } from '@epicenter/ui/progress';
 	import { ScrollArea } from '@epicenter/ui/scroll-area';
 	import { Separator } from '@epicenter/ui/separator';
-	import { relaunch } from '@tauri-apps/plugin-process';
-	import { rpc } from '$lib/query';
-	import * as Alert from '@epicenter/ui/alert';
 	import AlertTriangleIcon from '@lucide/svelte/icons/alert-triangle';
 	import DownloadIcon from '@lucide/svelte/icons/download';
-	import { extractErrorMessage } from 'wellcrafted/error';
-	import { marked } from 'marked';
+	import { relaunch } from '@tauri-apps/plugin-process';
 	import DOMPurify from 'dompurify';
-	import { Link } from '@epicenter/ui/link';
+	import { marked } from 'marked';
+	import { extractErrorMessage } from 'wellcrafted/error';
+	import { Err, tryAsync } from 'wellcrafted/result';
+	import { rpc } from '$lib/query';
 
 	const GITHUB_RELEASES_URL =
 		'https://github.com/EpicenterHQ/epicenter/releases/tag';
@@ -92,38 +93,41 @@
 
 		updateDialog.setError(null);
 
-		try {
-			let downloaded = 0;
-			let contentLength = 0;
+		let downloaded = 0;
+		let contentLength = 0;
 
-			await updateDialog.update.downloadAndInstall((event) => {
-				switch (event.event) {
-					case 'Started':
-						contentLength = event.data.contentLength ?? 0;
-						updateDialog.updateProgress(0, contentLength);
-						break;
-					case 'Progress':
-						downloaded += event.data.chunkLength;
-						updateDialog.updateProgress(downloaded, contentLength);
-						break;
-					case 'Finished':
-						rpc.notify.success({
-							title: 'Update installed successfully!',
-							description: 'Restart Whispering to apply the update.',
-							action: {
-								type: 'button',
-								label: 'Restart Whispering',
-								onClick: () => relaunch(),
-							},
-						});
-						break;
-				}
-			});
-		} catch (err) {
-			updateDialog.setError(extractErrorMessage(err));
+		const { error } = await tryAsync({
+			try: () =>
+				updateDialog.update!.downloadAndInstall((event) => {
+					switch (event.event) {
+						case 'Started':
+							contentLength = event.data.contentLength ?? 0;
+							updateDialog.updateProgress(0, contentLength);
+							break;
+						case 'Progress':
+							downloaded += event.data.chunkLength;
+							updateDialog.updateProgress(downloaded, contentLength);
+							break;
+						case 'Finished':
+							rpc.notify.success({
+								title: 'Update installed successfully!',
+								description: 'Restart Whispering to apply the update.',
+								action: {
+									type: 'button',
+									label: 'Restart Whispering',
+									onClick: () => relaunch(),
+								},
+							});
+							break;
+					}
+				}),
+			catch: (error) => Err(extractErrorMessage(error)),
+		});
+		if (error) {
+			updateDialog.setError(error);
 			rpc.notify.error({
 				title: 'Failed to install update',
-				description: extractErrorMessage(err),
+				description: error,
 			});
 		}
 	}
@@ -182,9 +186,7 @@
 			<Alert.Root variant="destructive">
 				<AlertTriangleIcon />
 				<Alert.Title>Installation failed</Alert.Title>
-				<Alert.Description>
-					{updateDialog.error}
-				</Alert.Description>
+				<Alert.Description> {updateDialog.error} </Alert.Description>
 			</Alert.Root>
 		{/if}
 

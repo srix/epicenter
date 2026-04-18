@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { page } from '$app/state';
+	import { APP_URLS } from '@epicenter/constants/vite';
 	import { Button } from '@epicenter/ui/button';
 	import { cn } from '@epicenter/ui/utils';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { cubicInOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
+	import { page } from '$app/state';
 
 	const items = [
 		{ title: 'General', href: '/settings' },
@@ -61,9 +63,19 @@
 					out:receive={{ key: 'active-sidebar-tab' }}
 				></div>
 			{/if}
-			<span class="relative z-10">
-				{item.title}
-			</span>
+			<span class="relative z-10"> {item.title} </span>
 		</Button>
 	{/each}
+
+	<Button
+		href={APP_URLS.DASHBOARD}
+		target="_blank"
+		variant="ghost"
+		class="relative justify-start text-left font-normal text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+	>
+		<span class="relative z-10 flex items-center gap-2">
+			Manage billing
+			<ExternalLinkIcon class="size-3 text-muted-foreground" />
+		</span>
+	</Button>
 </nav>

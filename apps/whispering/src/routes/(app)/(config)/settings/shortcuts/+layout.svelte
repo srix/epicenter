@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { Button } from '@epicenter/ui/button';
+	import * as SectionHeader from '@epicenter/ui/section-header';
 	import { cn } from '@epicenter/ui/utils';
 	import { cubicInOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
+	import { page } from '$app/state';
 
 	let { children } = $props();
 
@@ -19,12 +20,14 @@
 </script>
 
 <div class="mx-auto max-w-4xl space-y-6 py-6">
-	<header>
-		<h1 class="text-3xl font-bold tracking-tight">Keyboard Shortcuts</h1>
-		<p class="mt-2 text-muted-foreground">
+	<SectionHeader.Root>
+		<SectionHeader.Title level={1} class="text-3xl">
+			Keyboard Shortcuts
+		</SectionHeader.Title>
+		<SectionHeader.Description class="mt-2">
 			Configure keyboard shortcuts to quickly access Whispering features.
-		</p>
-	</header>
+		</SectionHeader.Description>
+	</SectionHeader.Root>
 
 	<nav class="flex w-full gap-1 rounded-lg bg-muted p-1">
 		{#each items as item (item.href)}
@@ -47,9 +50,7 @@
 						out:receive={{ key: 'active-tab' }}
 					></div>
 				{/if}
-				<span class="relative z-10">
-					{item.title}
-				</span>
+				<span class="relative z-10"> {item.title} </span>
 			</Button>
 		{/each}
 	</nav>

@@ -1,12 +1,31 @@
 import { basename } from '@tauri-apps/api/path';
 import { readFile } from '@tauri-apps/plugin-fs';
 import mime from 'mime';
-import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
+import {
+	defineErrors,
+	extractErrorMessage,
+	type InferErrors,
+} from 'wellcrafted/error';
 import { tryAsync } from 'wellcrafted/result';
 
-export const { FsServiceError, FsServiceErr } =
-	createTaggedError('FsServiceError');
-export type FsServiceError = ReturnType<typeof FsServiceError>;
+export const FsError = defineErrors({
+	ReadBlobFailed: ({ path, cause }: { path: string; cause: unknown }) => ({
+		message: `Failed to read file as Blob: ${path}: ${extractErrorMessage(cause)}`,
+		path,
+		cause,
+	}),
+	ReadFileFailed: ({ path, cause }: { path: string; cause: unknown }) => ({
+		message: `Failed to read file as File: ${path}: ${extractErrorMessage(cause)}`,
+		path,
+		cause,
+	}),
+	ReadFilesFailed: ({ paths, cause }: { paths: string[]; cause: unknown }) => ({
+		message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(cause)}`,
+		paths,
+		cause,
+	}),
+});
+export type FsError = InferErrors<typeof FsError>;
 
 export const FsServiceLive = {
 	/**
@@ -16,10 +35,7 @@ export const FsServiceLive = {
 	pathToBlob: (path: string) =>
 		tryAsync({
 			try: () => createBlobFromPath(path),
-			catch: (error) =>
-				FsServiceErr({
-					message: `Failed to read file as Blob: ${path}: ${extractErrorMessage(error)}`,
-				}),
+			catch: (error) => FsError.ReadBlobFailed({ path, cause: error }),
 		}),
 
 	/**
@@ -29,10 +45,7 @@ export const FsServiceLive = {
 	pathToFile: (path: string) =>
 		tryAsync({
 			try: () => createFileFromPath(path),
-			catch: (error) =>
-				FsServiceErr({
-					message: `Failed to read file as File: ${path}: ${extractErrorMessage(error)}`,
-				}),
+			catch: (error) => FsError.ReadFileFailed({ path, cause: error }),
 		}),
 
 	/**
@@ -42,10 +55,7 @@ export const FsServiceLive = {
 	pathsToFiles: (paths: string[]) =>
 		tryAsync({
 			try: () => Promise.all(paths.map(createFileFromPath)),
-			catch: (error) =>
-				FsServiceErr({
-					message: `Failed to read files: ${paths.join(', ')}: ${extractErrorMessage(error)}`,
-				}),
+			catch: (error) => FsError.ReadFilesFailed({ paths, cause: error }),
 		}),
 };
 

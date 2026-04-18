@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Button } from '@epicenter/ui/button';
-	import type { Transformation } from '$lib/services/isomorphic/db';
-	import { settings } from '$lib/state/settings.svelte';
 	import CheckCircleIcon from '@lucide/svelte/icons/check-circle';
 	import CircleIcon from '@lucide/svelte/icons/circle';
+	import { settings } from '$lib/state/settings.svelte';
+	import type { Transformation } from '$lib/state/transformations.svelte';
 
 	let {
 		transformation,
@@ -16,8 +16,7 @@
 	} = $props();
 
 	const isTransformationActive = $derived(
-		settings.value['transformations.selectedTransformationId'] ===
-			transformation.id,
+		settings.get('transformation.selectedId') === transformation.id,
 	);
 
 	const displayText = $derived(
@@ -34,12 +33,9 @@
 	class={className}
 	onclick={() => {
 		if (isTransformationActive) {
-			settings.updateKey('transformations.selectedTransformationId', null);
+			settings.set('transformation.selectedId', null);
 		} else {
-			settings.updateKey(
-				'transformations.selectedTransformationId',
-				transformation.id,
-			);
+			settings.set('transformation.selectedId', transformation.id);
 		}
 	}}
 >

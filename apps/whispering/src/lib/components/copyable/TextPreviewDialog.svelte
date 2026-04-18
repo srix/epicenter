@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Button } from '@epicenter/ui/button';
 	import { CopyButton } from '@epicenter/ui/copy-button';
-	import * as Modal from '@epicenter/ui/modal';
 	import * as InputGroup from '@epicenter/ui/input-group';
+	import * as Modal from '@epicenter/ui/modal';
 	import { Spinner } from '@epicenter/ui/spinner';
 	import { Textarea } from '@epicenter/ui/textarea';
+	import TrashIcon from '@lucide/svelte/icons/trash';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
 
 	/**
 	 * A generic text preview component that displays text in a readonly textarea
@@ -35,6 +36,18 @@
 	 *   loading={true}
 	 * />
 	 * ```
+	 *
+	 * @example
+	 * ```svelte
+	 * <!-- With delete button -->
+	 * <TextPreviewDialog
+	 *   id="transcription-1"
+	 *   title="Transcript"
+	 *   text={transcriptionResult}
+	 *   label="transcription"
+	 *   onDelete={() => handleDelete()}
+	 * />
+	 * ```
 	 */
 	let {
 		/** Unique identifier for view transitions */
@@ -51,6 +64,8 @@
 		disabled = false,
 		/** Whether to show a loading spinner instead of copy button */
 		loading = false,
+		/** Optional callback to delete the associated item. When provided, a delete button appears in the dialog footer. */
+		onDelete,
 	}: {
 		id: string;
 		title: string;
@@ -59,6 +74,7 @@
 		rows?: number;
 		disabled?: boolean;
 		loading?: boolean;
+		onDelete?: () => void;
 	} = $props();
 
 	let isDialogOpen = $state(false);
@@ -71,7 +87,7 @@
 				<textarea
 					{...props}
 					data-slot="input-group-control"
-					class="flex-1 min-w-0 resize-none rounded-none border-0 bg-transparent py-2 px-3 shadow-none focus-visible:ring-0 focus:outline-none dark:bg-transparent text-sm leading-snug hover:cursor-pointer hover:bg-accent/50 transition-colors min-h-0"
+					class="flex-1 min-w-0 resize-none rounded-none border-0 bg-transparent py-2 px-3 shadow-none focus-visible:ring-0 focus:outline-none dark:bg-transparent text-sm leading-snug enabled:hover:cursor-pointer enabled:hover:bg-accent/50 transition-colors min-h-0"
 					readonly
 					value={text}
 					style="view-transition-name: {id}"
@@ -98,6 +114,19 @@
 		<Modal.Title>{title}</Modal.Title>
 		<Textarea readonly value={text} rows={20} />
 		<Modal.Footer>
+			{#if onDelete}
+				<Button
+					variant="destructive"
+					onclick={() => {
+						isDialogOpen = false;
+						onDelete();
+					}}
+				>
+					<TrashIcon class="size-4" />
+					Delete
+				</Button>
+			{/if}
+			<div class="flex-1" />
 			<Button variant="outline" onclick={() => (isDialogOpen = false)}>
 				Close
 			</Button>

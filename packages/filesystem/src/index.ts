@@ -1,54 +1,40 @@
-// Content helpers (document binding wrappers)
+// Errors
+export { FS_ERRORS, type FsErrorCode } from './errors.js';
+// Extensions
 export {
-	type ContentHelpers,
-	createContentHelpers,
-} from './content-helpers.js';
-// Runtime indexes
-export {
-	createFileSystemIndex,
-	type FileSystemIndex,
-} from './file-system-index.js';
-
-// File table definition
-export { filesTable } from './file-table.js';
-// File tree (metadata operations)
-export { FileTree } from './file-tree.js';
-// Markdown helpers
+	createSqliteIndex,
+	type SearchResult,
+	type SqliteIndex,
+	type SqliteIndexOptions,
+} from './extensions/sqlite-index/index.js';
+// File system (orchestrator)
+export { createYjsFileSystem, type YjsFileSystem } from './file-system.js';
+// Formats
 export {
 	markdownSchema,
 	parseFrontmatter,
+	reorderColumn,
+	reorderRow,
 	serializeMarkdownWithFrontmatter,
 	serializeXmlFragmentToMarkdown,
 	updateYMapFromRecord,
 	updateYXmlFragmentFromString,
 	yMapToRecord,
-} from './markdown-helpers.js';
+} from './formats/index.js';
+// IDs
+export type { ColumnId, FileId, RowId } from './ids.js';
+export { generateColumnId, generateFileId, generateRowId } from './ids.js';
 // Path utilities
-export { posixResolve } from './path-utils.js';
-// Sheet helpers
-export {
-	parseSheetFromCsv,
-	reorderColumn,
-	reorderRow,
-	serializeSheetToCsv,
-} from './sheet-helpers.js';
-export type {
-	ColumnDefinition,
-	ColumnId,
-	FileId,
-	FileRow,
-	RowId,
-	SheetEntry,
-} from './types.js';
-export { generateColumnId, generateFileId, generateRowId } from './types.js';
-// Validation
+export { posixResolve } from './path.js';
+// Table
+export { type ColumnDefinition, type FileRow, filesTable } from './table.js';
+// Tree (metadata layer)
 export {
 	assertUniqueName,
+	createFileSystemIndex,
+	createFileTree,
 	disambiguateNames,
-	FS_ERRORS,
-	type FsErrorCode,
+	type FileSystemIndex,
+	type FileTree,
 	validateName,
-} from './validation.js';
-
-// IFileSystem implementation
-export { createYjsFileSystem, type YjsFileSystem } from './yjs-file-system.js';
+} from './tree/index.js';

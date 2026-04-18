@@ -1,24 +1,24 @@
 <script lang="ts">
 	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
-	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
-	import { rpc } from '$lib/query';
-	import { vadRecorder } from '$lib/state/vad-recorder.svelte';
-	import { settings } from '$lib/state/settings.svelte';
+	import * as Popover from '@epicenter/ui/popover';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { cn } from '@epicenter/ui/utils';
-	import { createQuery } from '@tanstack/svelte-query';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { Spinner } from '@epicenter/ui/spinner';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { rpc } from '$lib/query';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
+	import { vadRecorder } from '$lib/state/vad-recorder.svelte';
 
 	const combobox = useCombobox();
 
 	// VAD always uses navigator device ID
 	const settingKey = 'recording.navigator.deviceId';
 
-	const selectedDeviceId = $derived(settings.value[settingKey]);
+	const selectedDeviceId = $derived(deviceConfig.get(settingKey));
 
 	const isDeviceSelected = $derived(!!selectedDeviceId);
 
@@ -78,7 +78,7 @@
 							value={device.id}
 							onSelect={() => {
 								const currentDeviceId = selectedDeviceId;
-								settings.updateKey(
+						deviceConfig.set(
 									settingKey,
 									currentDeviceId === device.id ? null : device.id,
 								);

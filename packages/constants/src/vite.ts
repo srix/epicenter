@@ -1,40 +1,19 @@
 /// <reference types="vite/client" />
 
-import { type } from 'arktype';
-import { createApps, createAppUrls } from '#apps';
+import { APPS, type AppId } from '#apps';
 
 /**
- * Vite/client-side constants and utilities
- * Uses import.meta.env.MODE for environment detection
- */
-
-// Schema
-const viteEnvSchema = type({
-	MODE: "'development' | 'production'",
-});
-
-export function validateViteEnv(env: unknown): ViteEnv {
-	const result = viteEnvSchema(env);
-	if (result instanceof type.errors) throw new Error(result.summary);
-	return result;
-}
-
-export type ViteEnv = typeof viteEnvSchema.infer;
-
-/**
- * Vite build-time URLs.
- * Uses import.meta.env.MODE for environment detection.
+ * Flat URL strings resolved at Vite build time.
  *
- * For use in Vite contexts (client-side applications).
+ * `import.meta.env.MODE` is statically replaced by Vite:
+ * - `vite dev`   → `'development'` → `http://localhost:<port>`
+ * - `vite build` → `'production'`  → production URLs
  */
-// @ts-expect-error TODO properly assert this
-export const APPS = createApps(import.meta.env.MODE);
+const isDev = import.meta.env.MODE !== 'production';
 
-/**
- * All application URLs for Vite contexts.
- * Uses import.meta.env.MODE for environment detection.
- *
- * Primarily used for CORS configuration in client-side applications.
- */
-// @ts-expect-error TODO properly assert this
-export const APP_URLS = createAppUrls(import.meta.env.MODE);
+export const APP_URLS = Object.fromEntries(
+	Object.entries(APPS).map(([id, app]) => [
+		id,
+		isDev ? `http://localhost:${app.port}` : app.urls[0],
+	]),
+) as { readonly [K in AppId]: string };

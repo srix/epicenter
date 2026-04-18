@@ -1,16 +1,31 @@
 import { appDataDir, join } from '@tauri-apps/api/path';
 import { exists, remove, writeFile } from '@tauri-apps/plugin-fs';
 import { nanoid } from 'nanoid/non-secure';
-import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
+import {
+	defineErrors,
+	extractErrorMessage,
+	type InferErrors,
+} from 'wellcrafted/error';
 import { Err, Ok, tryAsync } from 'wellcrafted/result';
 import { asShellCommand, CommandServiceLive } from './command';
 import { FsServiceLive } from './fs';
 import { getFileExtensionFromFfmpegOptions } from './recorder/ffmpeg';
 
-export const { FfmpegServiceErr, FfmpegServiceError } =
-	createTaggedError('FfmpegServiceError');
-
-export type FfmpegServiceError = ReturnType<typeof FfmpegServiceError>;
+export const FfmpegError = defineErrors({
+	InstallCheckFailed: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to check FFmpeg installation: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+	VerifyFailed: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to verify temp file accessibility: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+	CompressFailed: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to compress audio: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+});
+export type FfmpegError = InferErrors<typeof FfmpegError>;
 
 export const FfmpegServiceLive = {
 	/**
@@ -27,10 +42,7 @@ export const FfmpegServiceLive = {
 					if (commandError) throw commandError;
 					return result;
 				},
-				catch: (error) =>
-					FfmpegServiceErr({
-						message: `Unable to determine if FFmpeg is installed through shell. ${extractErrorMessage(error)}`,
-					}),
+				catch: (error) => FfmpegError.InstallCheckFailed({ cause: error }),
 			});
 
 		if (shellFfmpegError) return Err(shellFfmpegError);
@@ -72,10 +84,7 @@ export const FfmpegServiceLive = {
 					// Verify file is accessible (forces OS flush on Windows)
 					const { error: verifyError } = await tryAsync({
 						try: () => FsServiceLive.pathToBlob(inputPath),
-						catch: (error) =>
-							FfmpegServiceErr({
-								message: `Temp file not accessible: ${extractErrorMessage(error)}`,
-							}),
+						catch: (error) => FfmpegError.VerifyFailed({ cause: error }),
 					});
 					if (verifyError) throw new Error(verifyError.message);
 
@@ -131,10 +140,7 @@ export const FfmpegServiceLive = {
 					});
 				}
 			},
-			catch: (error) =>
-				FfmpegServiceErr({
-					message: `Audio compression failed: ${extractErrorMessage(error)}`,
-				}),
+			catch: (error) => FfmpegError.CompressFailed({ cause: error }),
 		});
 	},
 };

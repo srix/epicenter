@@ -1,10 +1,10 @@
 <script lang="ts" module>
-	import { cn, type WithElementRef } from '#/utils.js';
 	import type {
 		HTMLAnchorAttributes,
 		HTMLButtonAttributes,
 	} from 'svelte/elements';
-	import { type VariantProps, tv } from 'tailwind-variants';
+	import { tv, type VariantProps } from 'tailwind-variants';
+	import { cn, type WithElementRef } from '#/utils.js';
 
 	export const buttonVariants = tv({
 		base: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium outline-none transition-all focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
@@ -20,6 +20,8 @@
 					'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
 				ghost:
 					'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+				'ghost-destructive':
+					'text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20',
 			},
 			size: {
 				default: 'h-9 px-4 py-2 has-[>svg]:px-3',
@@ -72,6 +74,7 @@
 
 {#snippet buttonContent(tooltipProps?: Record)}
 	{#if href}
+		<!-- biome-ignore lint/a11y/useValidAriaRole: conditional role is valid -->
 		<a
 			bind:this={ref}
 			data-slot="button"
@@ -111,9 +114,7 @@
 				{@render buttonContent(props)}
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content class="max-w-xs text-center">
-			{tooltip}
-		</Tooltip.Content>
+		<Tooltip.Content class="max-w-xs text-center"> {tooltip} </Tooltip.Content>
 	</Tooltip.Root>
 {:else}
 	{@render buttonContent()}

@@ -56,7 +56,7 @@ For these simple cases, the HeadDoc is overhead. The `WorkspaceDefinition` alrea
 ### New API
 
 ```typescript
-import { createWorkspace } from '@epicenter/hq/dynamic';
+import { createWorkspace } from '@epicenter/workspace/dynamic';
 
 const workspace = createWorkspace(definition)
 	.withExtension('persistence', (ctx) => workspacePersistence(ctx))
@@ -313,7 +313,7 @@ Simplify to use new API:
 import {
 	createWorkspace,
 	type WorkspaceDefinition,
-} from '@epicenter/hq/dynamic';
+} from '@epicenter/workspace/dynamic';
 import { workspacePersistence } from './workspace-persistence';
 
 /**
@@ -337,7 +337,7 @@ import {
 	defineExports,
 	type ExtensionContext,
 	type Lifecycle,
-} from '@epicenter/hq/dynamic';
+} from '@epicenter/workspace/dynamic';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { mkdir, readFile, writeFile } from '@tauri-apps/plugin-fs';
 import * as Y from 'yjs';
@@ -473,7 +473,7 @@ export function workspacePersistence<TTableDefs, TKvFields>(
 New service for workspace management:
 
 ```typescript
-import type { WorkspaceDefinition } from '@epicenter/hq/dynamic';
+import type { WorkspaceDefinition } from '@epicenter/workspace/dynamic';
 import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import {
 	readDir,
@@ -482,7 +482,7 @@ import {
 	mkdir,
 	remove,
 } from '@tauri-apps/plugin-fs';
-import { generateGuid } from '@epicenter/hq';
+import { generateGuid } from '@epicenter/workspace';
 
 const WORKSPACES_DIR = 'workspaces';
 
@@ -778,7 +778,7 @@ Recommendation: Start fresh for now (dev mode), add migration later if needed.
 
 ## Related Documents
 
-- **Handoff Prompt**: `specs/20260201T120000-simple-definition-first-workspace-handoff.md` - Copy-paste prompt for agent execution
+- **Handoff Prompt**: `specs/20260201T120000-simple-definition-first-workspace.handoff.md` - Copy-paste prompt for agent execution
 - **Archived Patterns**: `docs/articles/archived-head-registry-patterns.md` - HeadDoc and Registry patterns preserved for future versioned workspace implementation
 - **GC Decision Guide**: `docs/articles/ykeyvalue-vs-ymap-decision-guide.md` - Why we use `gc: true` with YKeyValueLww
 - **GC Deep Dive**: `docs/articles/ykeyvalue-gc-the-hidden-variable.md` - The hidden variable that determines data structure choice

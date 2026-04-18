@@ -1,23 +1,31 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { Button } from '@epicenter/ui/button';
-	import * as Modal from '@epicenter/ui/modal';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
 	import { Input } from '@epicenter/ui/input';
 	import { Label } from '@epicenter/ui/label';
-	import { Textarea } from '@epicenter/ui/textarea';
-	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/isomorphic/db';
-	import { services } from '$lib/services';
-	import { createMutation, createQuery } from '@tanstack/svelte-query';
-	import EditIcon from '@lucide/svelte/icons/pencil';
+	import * as Modal from '@epicenter/ui/modal';
 	import { Spinner } from '@epicenter/ui/spinner';
+	import { Textarea } from '@epicenter/ui/textarea';
+	import EditIcon from '@lucide/svelte/icons/pencil';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { onDestroy } from 'svelte';
-
-	const updateRecording = createMutation(
-		() => rpc.db.recordings.update.options,
-	);
+	import { rpc } from '$lib/query';
+	import { services } from '$lib/services';
+	import { type Recording, recordings } from '$lib/state/recordings.svelte';
+	import { recordingActions } from '$lib/utils/recording-actions';
 
 	let { recording }: { recording: Recording } = $props();
+
+	/**
+	 * Capture the recording ID at setup time for use in cleanup.
+	 *
+	 * Reactive props ($props) can become undefined during Svelte's teardown
+	 * when the parent's data source is deleted (e.g. deleting a recording
+	 * causes the table row—and this component—to unmount). If onDestroy
+	 * reads the prop directly, it may see undefined and throw. Capturing
+	 * the ID here sidesteps the reactive teardown race entirely.
+	 */
+	const recordingIdForCleanup = recording.id;
 
 	let isDialogOpen = $state(false);
 
@@ -64,12 +72,12 @@
 	});
 
 	/**
-	 * Fetch audio playback URL using TanStack Query.
-	 * The URL is cached and managed by the DbService implementation.
-	 * Uses accessor pattern for reactive updates.
+	 * Audio playback URL via TanStack Query.
+	 * Audio blobs are too large for Yjs CRDTs, so they're still served
+	 * from BlobStore. Uses accessor pattern for reactive updates.
 	 */
 	const audioPlaybackUrlQuery = createQuery(
-		() => rpc.db.recordings.getAudioPlaybackUrl(() => recording.id).options,
+		() => rpc.audio.getPlaybackUrl(() => recording.id).options,
 	);
 
 	const audioUrl = $derived(audioPlaybackUrlQuery.data);
@@ -95,7 +103,7 @@
 	}
 
 	onDestroy(() => {
-		services.db.recordings.revokeAudioUrl(recording.id);
+		services.blobs.audio.revokeUrl(recordingIdForCleanup);
 	});
 </script>
 
@@ -141,38 +149,26 @@
 				/>
 			</div>
 			<div class="grid grid-cols-4 items-center gap-4">
-				<Label for="subtitle" class="text-right">Subtitle</Label>
+				<Label for="recordedAt" class="text-right">Recorded At</Label>
 				<Input
-					id="subtitle"
-					value={workingCopy.subtitle}
+					id="recordedAt"
+					value={workingCopy.recordedAt}
 					oninput={(e) => {
-						workingCopy = { ...workingCopy, subtitle: e.currentTarget.value };
+						workingCopy = { ...workingCopy, recordedAt: e.currentTarget.value };
 						isWorkingCopyDirty = true;
 					}}
 					class="col-span-3"
 				/>
 			</div>
 			<div class="grid grid-cols-4 items-center gap-4">
-				<Label for="timestamp" class="text-right">Created At</Label>
-				<Input
-					id="timestamp"
-					value={workingCopy.timestamp}
-					oninput={(e) => {
-						workingCopy = { ...workingCopy, timestamp: e.currentTarget.value };
-						isWorkingCopyDirty = true;
-					}}
-					class="col-span-3"
-				/>
-			</div>
-			<div class="grid grid-cols-4 items-center gap-4">
-				<Label for="transcribedText" class="text-right">Transcript</Label>
+				<Label for="transcript" class="text-right">Transcript</Label>
 				<Textarea
-					id="transcribedText"
-					value={workingCopy.transcribedText}
+					id="transcript"
+					value={workingCopy.transcript}
 					oninput={(e) => {
 						workingCopy = {
 							...workingCopy,
-							transcribedText: e.currentTarget.value,
+							transcript: e.currentTarget.value,
 						};
 						isWorkingCopyDirty = true;
 					}}
@@ -188,31 +184,11 @@
 		</div>
 		<Modal.Footer>
 			<Button
-				onclick={() => {
-					confirmationDialog.open({
-						title: 'Delete recording',
-						description: 'Are you sure? This action cannot be undone.',
-						confirm: { text: 'Delete', variant: 'destructive' },
-						onConfirm: async () => {
-							const { error } = await rpc.db.recordings.delete(
-								$state.snapshot(recording),
-							);
-							if (error) {
-								rpc.notify.error({
-									title: 'Failed to delete recording!',
-									description: 'Your recording could not be deleted.',
-									action: { type: 'more-details', error },
-								});
-								throw error;
-							}
-							isDialogOpen = false;
-							rpc.notify.success({
-								title: 'Deleted recording!',
-								description: 'Your recording has been deleted successfully.',
-							});
-						},
-					});
-				}}
+				onclick={() =>
+					recordingActions.deleteWithConfirmation(
+						$state.snapshot(recording),
+						{ onSuccess: () => { isDialogOpen = false; } },
+					)}
 				variant="destructive"
 			>
 				Delete
@@ -222,28 +198,15 @@
 			</Button>
 			<Button
 				onclick={() => {
-					updateRecording.mutate($state.snapshot(workingCopy), {
-						onSuccess: () => {
-							rpc.notify.success({
-								title: 'Updated recording!',
-								description: 'Your recording has been updated successfully.',
-							});
-							isDialogOpen = false;
-						},
-						onError: (error) => {
-							rpc.notify.error({
-								title: 'Failed to update recording!',
-								description: 'Your recording could not be updated.',
-								action: { type: 'more-details', error: error },
-							});
-						},
-					});
-				}}
-				disabled={updateRecording.isPending || !isWorkingCopyDirty}
+				recordings.set($state.snapshot(workingCopy));
+				rpc.notify.success({
+					title: 'Updated recording!',
+					description: 'Your recording has been updated successfully.',
+				});
+				isDialogOpen = false;
+			}}
+				disabled={!isWorkingCopyDirty}
 			>
-				{#if updateRecording.isPending}
-					<Spinner />
-				{/if}
 				Save
 			</Button>
 		</Modal.Footer>

@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { Button } from '@epicenter/ui/button';
 	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
 	import * as Card from '@epicenter/ui/card';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import { toast } from '@epicenter/ui/sonner';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import { desktopServices } from '$lib/services';
-	import { toast } from 'svelte-sonner';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import { goto } from '$app/navigation';
+	import { desktopServices } from '$lib/services/desktop';
 	import { asShellCommand } from '$lib/services/desktop/command';
 	import type { PageData } from './$types';
-	import { goto } from '$app/navigation';
 
 	let { data } = $props();
 	const isAccessibilityGranted = $derived(data.isAccessibilityGranted);
@@ -19,8 +19,7 @@
 
 		if (error) {
 			toast.error('Failed to open accessibility settings', {
-				description:
-					'Please enable Accessibility in System Settings > Privacy & Security > Accessibility manually',
+				description: error.message,
 				action: {
 					label: 'Open Accessibility Settings',
 					onClick: () => openSystemSettings(),
@@ -31,7 +30,7 @@
 
 	async function openSystemSettings() {
 		// Try opening System Settings directly (works on macOS 13+)
-		const { error: commandError } = await desktopServices.command(
+		const { error: commandError } = await desktopServices.command.execute(
 			asShellCommand(
 				'open x-apple.systemsettings:com.apple.SystemSettings.extension',
 			),
@@ -58,9 +57,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>MacOS Accessibility</title>
-</svelte:head>
+<svelte:head> <title>MacOS Accessibility</title> </svelte:head>
 
 <main class="flex flex-1 items-center justify-center">
 	<Card.Root class="w-full max-w-2xl">
@@ -83,7 +80,14 @@
 						src="https://www.youtube.com/embed/FJRktNkr1Fs"
 						title="macOS Accessibility Settings Guide"
 						frameborder="0"
-						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+						allow="
+							accelerometer;
+							autoplay;
+							clipboard-write;
+							encrypted-media;
+							gyroscope;
+							picture-in-picture;
+						"
 						allowfullscreen
 					></iframe>
 				{:else}
@@ -107,19 +111,23 @@
 					class="text-muted-foreground list-inside list-decimal space-y-1 text-sm leading-7"
 				>
 					<li>
-						Go to <span class="text-primary font-semibold tracking-tight">
+						Go to
+						<span class="text-primary font-semibold tracking-tight">
 							System Settings > Privacy & Security > Accessibility
-						</span> or click the button below.
+						</span>
+						or click the button below.
 					</li>
 
 					<li>
-						Click on <span class="text-primary font-semibold tracking-tight"
+						Click on
+						<span class="text-primary font-semibold tracking-tight"
 							>🎙️ Whispering</span
-						> and remove it using the minus icon (-).
+						>
+						and remove it using the minus icon (-).
 					</li>
 					<li>
-						Re-add Whispering by pressing the plus icon (+) and selecting <span
-							class="text-primary font-semibold tracking-tight"
+						Re-add Whispering by pressing the plus icon (+) and selecting
+						<span class="text-primary font-semibold tracking-tight"
 							>🎙️ Whispering.app</span
 						>
 					</li>

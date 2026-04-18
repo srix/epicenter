@@ -1,9 +1,16 @@
 {
 	"$schema": "https://turbo.build/schema.json",
+	"globalPassThroughEnv": ["LAUNCH_EDITOR"],
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": [".svelte-kit/**", "dist/**", ".build/**", ".vercel/**"]
+			"outputs": [
+				".svelte-kit/**",
+				"dist/**",
+				".build/**",
+				".vercel/**",
+				"build/**"
+			]
 		},
 		"lint": {
 			"cache": false,
@@ -22,6 +29,10 @@
 			"inputs": ["**/*.{ts,tsx,js,jsx,svelte,md,json}"]
 		},
 		"dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"dev:secrets": {
 			"cache": false,
 			"persistent": true
 		}

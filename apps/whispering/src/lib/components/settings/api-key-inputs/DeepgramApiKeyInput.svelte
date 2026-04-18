@@ -2,7 +2,7 @@
 	import * as Field from '@epicenter/ui/field';
 	import { Input } from '@epicenter/ui/input';
 	import { Link } from '@epicenter/ui/link';
-	import { settings } from '$lib/state/settings.svelte';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
 </script>
 
 <Field.Field>
@@ -12,10 +12,8 @@
 		type="password"
 		placeholder="Your Deepgram API Key"
 		autocomplete="off"
-		bind:value={
-			() => settings.value['apiKeys.deepgram'],
-			(value) => settings.updateKey('apiKeys.deepgram', value)
-		}
+		bind:value={() => deviceConfig.get('apiKeys.deepgram'),
+			(value) => deviceConfig.set('apiKeys.deepgram', value)}
 	/>
 	<Field.Description>
 		You can find your API key in your <Link
@@ -24,7 +22,8 @@
 			rel="noopener noreferrer"
 		>
 			Deepgram Console
-		</Link>. Make sure you have <Link
+		</Link>
+		. Make sure you have <Link
 			href="https://console.deepgram.com/billing"
 			target="_blank"
 			rel="noopener noreferrer"

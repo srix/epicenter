@@ -1,88 +1,54 @@
-import { createServer } from '@epicenter/server';
 import yargs from 'yargs';
-import { buildActionCommands } from './command-builder';
-import { buildKvCommands } from './commands/kv-commands';
-import { buildMetaCommands } from './commands/meta-commands';
-import { buildTableCommands } from './commands/table-commands';
-import type { AnyWorkspaceClient } from './discovery';
+import { createAuthCommand } from './commands/auth';
+import {
+	countCommand,
+	deleteCommand,
+	exportCommand,
+	getCommand,
+	listCommand,
+	tablesCommand,
+} from './commands/data';
+import { describeCommand } from './commands/describe';
+import { kvCommand } from './commands/kv';
+import { initCommand } from './commands/project';
+import { rpcCommand } from './commands/rpc';
+import { runActionCommand } from './commands/run';
+import { sizeCommand } from './commands/size';
+import { startCommand } from './commands/start';
 
-export function createCLI(client?: AnyWorkspaceClient) {
-	let cli = yargs()
-		.scriptName('epicenter')
-		.usage('Usage: $0 <command> [options]')
-		.help()
-		.version()
-		.strict()
-		.command(
-			'serve',
-			'Start HTTP server with REST and WebSocket sync endpoints',
-			(yargs) =>
-				yargs.option('port', {
-					type: 'number',
-					description: 'Port to run the server on',
-					default: 3913,
-				}),
-			async (argv) => {
-				const server = createServer({
-					clients: client ? [client] : [],
-					port: argv.port,
-				});
-				server.start();
-
-				console.log(`\nEpicenter server on http://localhost:${argv.port}`);
-				console.log(`API docs: http://localhost:${argv.port}/openapi\n`);
-
-				const shutdown = async () => {
-					await server.stop();
-					process.exit(0);
-				};
-				process.on('SIGINT', shutdown);
-				process.on('SIGTERM', shutdown);
-
-				await new Promise(() => {});
-			},
-		);
-
-	if (client) {
-		const metaCommands = buildMetaCommands(client);
-		for (const cmd of metaCommands) {
-			cli = cli.command(cmd);
-		}
-
-		const tableCommands = buildTableCommands(client);
-		for (const cmd of tableCommands) {
-			cli = cli.command(cmd);
-		}
-
-		const kvCommands = buildKvCommands(client);
-		for (const cmd of kvCommands) {
-			cli = cli.command(cmd);
-		}
-
-		if (client.actions) {
-			const commands = buildActionCommands(client.actions);
-			for (const cmd of commands) {
-				cli = cli.command(cmd);
-			}
-		}
-	}
-
+/**
+ * Create the Epicenter CLI instance.
+ *
+ * Registers all top-level commands: table CRUD (get, list, count, delete),
+ * tables, kv, export, init, run, describe, start, and auth.
+ *
+ * @returns An object with a `run` method that parses and executes CLI commands.
+ */
+export function createCLI() {
 	return {
-		async run(argv: string[]) {
-			const cleanup = async () => {
-				await client?.destroy();
-				process.exit(0);
-			};
-			process.on('SIGINT', cleanup);
-			process.on('SIGTERM', cleanup);
+		run: async (argv: string[]) => {
+			const cli = yargs()
+				.scriptName('epicenter')
+				.command(startCommand)
+				.command(getCommand)
+				.command(listCommand)
+				.command(countCommand)
+				.command(deleteCommand)
+				.command(tablesCommand)
+				.command(kvCommand)
+				.command(exportCommand)
+				.command(initCommand)
+				.command(runActionCommand)
+				.command(describeCommand)
+				.command(sizeCommand)
+				.command(rpcCommand)
+				.command(createAuthCommand())
+				.demandCommand(1)
+				.strict()
+				.exitProcess(false)
+				.help();
 
-			try {
-				await cli.parse(argv);
-			} finally {
-				process.off('SIGINT', cleanup);
-				process.off('SIGTERM', cleanup);
-				await client?.destroy();
-			}
+			await cli.parse(argv);
 		},
 	};
 }

@@ -104,7 +104,15 @@ export const ClipboardServiceLive = window.__TAURI_INTERNALS__
 All services use `Result<T, E>` for error handling:
 
 ```typescript
+import { defineErrors, extractErrorMessage } from 'wellcrafted/error';
 import { tryAsync, type Result } from 'wellcrafted/result';
+
+const TranscriptionError = defineErrors({
+	ApiFailed: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to transcribe audio: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+});
 
 // Services return Results, not thrown errors
 async function transcribe(
@@ -113,34 +121,37 @@ async function transcribe(
 	return tryAsync({
 		try: () => apiCall(blob),
 		catch: (error) =>
-			TranscriptionErr({
-				message: 'Failed to transcribe audio',
-				cause: error,
-			}),
+			TranscriptionError.ApiFailed({ cause: error }),
 	});
 }
 ```
 
 ## Service-Specific Error Types
 
-Each service defines its own `TaggedError` type to represent domain-specific failures. These error types are part of the service's public API and contain all the context needed to understand what went wrong:
+Each service defines its own errors using `defineErrors` from wellcrafted. Error types are part of the service's public API and contain all the context needed to understand what went wrong:
 
 ```typescript
-// From manual-recorder.ts
-type RecorderServiceError = TaggedError<'RecorderServiceError'>;
+import { defineErrors, type InferErrors, extractErrorMessage } from 'wellcrafted/error';
 
-// From cpal-recorder.ts
-type CpalRecorderServiceError = TaggedError<'CpalRecorderServiceError'>;
-
-// From device-stream.ts
-type DeviceStreamServiceError = TaggedError<'DeviceStreamServiceError'>;
+const DeviceStreamError = defineErrors({
+  PermissionDenied: ({ cause }: { cause: unknown }) => ({
+    message: `Microphone permission denied: ${extractErrorMessage(cause)}`,
+    cause,
+  }),
+  DeviceConnectionFailed: ({ deviceId, cause }: { deviceId: string; cause: unknown }) => ({
+    message: `Failed to connect to device '${deviceId}': ${extractErrorMessage(cause)}`,
+    deviceId,
+    cause,
+  }),
+});
+type DeviceStreamError = InferErrors<typeof DeviceStreamError>;
 ```
 
 ### Error Handling Architecture
 
 The error handling follows a clear pattern across three layers:
 
-1. **Service Layer**: Returns domain-specific tagged errors
+1. **Service Layer**: Returns domain-specific errors via `defineErrors`
 2. **Query Layer**: Wraps service errors into `WhisperingError` objects
 3. **UI Layer**: Displays `WhisperingError` objects in toasts without re-wrapping
 
@@ -148,50 +159,37 @@ This pattern ensures consistent error handling and avoids double-wrapping errors
 
 ### Error Type Best Practices
 
-1. **Name Convention**: Use `{ServiceName}ServiceError` format
+1. **Use `defineErrors` namespaces**: Group related errors under a single namespace
 
    ```typescript
-   type ClipboardServiceError = TaggedError<'ClipboardServiceError'>;
-   ```
-
-2. **Rich Error Messages**: Provide detailed, user-friendly messages
-
-   ```typescript
-   return Err({
-   	name: 'RecorderServiceError',
-   	message:
-   		'A recording is already in progress. Please stop the current recording before starting a new one.',
-   	context: { activeRecording },
-   	cause: undefined,
+   const RecorderError = defineErrors({
+     AlreadyRecording: () => ({
+       message: 'A recording is already in progress. Please stop the current recording.',
+     }),
+     InitFailed: ({ cause }: { cause: unknown }) => ({
+       message: `Failed to initialize recorder: ${extractErrorMessage(cause)}`,
+       cause,
+     }),
    });
+   type RecorderError = InferErrors<typeof RecorderError>;
    ```
 
-3. **Include Context**: Add relevant debugging information
+2. **Accept `cause: unknown`, extract inside constructor**: Error constructors accept the raw caught error and call `extractErrorMessage(cause)` inside the message template. Call sites stay clean with `{ cause: error }`.
 
    ```typescript
-   return Err({
-   	name: 'CpalRecorderServiceError',
-   	message:
-   		'We encountered an issue while setting up your recording session.',
-   	context: {
-   		selectedDeviceId,
-   		deviceName,
-   		availableDevices: devices,
-   	},
-   	cause: underlyingError,
-   });
+   // ✅ GOOD: cause: error at call site, extractErrorMessage in constructor
+   catch: (error) => RecorderError.InitFailed({ cause: error })
+
+   // ❌ BAD: extractErrorMessage at call site, string passed to constructor
+   catch: (error) => RecorderError.InitFailed({ underlyingError: extractErrorMessage(error) })
    ```
 
-4. **Map Platform Errors**: Transform platform-specific errors
+3. **Map Platform Errors**: Transform platform-specific errors
    ```typescript
    return tryAsync({
    	try: () => navigator.mediaDevices.getUserMedia(constraints),
    	catch: (error) =>
-   		DeviceStreamServiceErr({
-   			message: 'Unable to access microphone. Please check permissions.',
-   			context: { constraints, hasPermission },
-   			cause: error,
-   		}),
+   		DeviceStreamError.PermissionDenied({ cause: error }),
    });
    ```
 
@@ -204,7 +202,13 @@ Services should **never** import or use `WhisperingError`. That transformation h
 import { WhisperingError } from '$lib/result';
 
 // ✅ CORRECT - Service uses its own error type
-type MyServiceError = TaggedError<'MyServiceError'>;
+const MyError = defineErrors({
+	Failed: ({ cause }: { cause: unknown }) => ({
+		message: `Operation failed: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+});
+type MyError = InferErrors<typeof MyError>;
 ```
 
 The query layer is responsible for transforming service errors into `WhisperingError` for toast notifications. This separation ensures:
@@ -216,35 +220,36 @@ The query layer is responsible for transforming service errors into `WhisperingE
 ### Real-World Example: Recording Service Errors
 
 ```typescript
-// In manual-recorder.ts
+const RecorderError = defineErrors({
+	AlreadyRecording: () => ({
+		message: 'A recording is already in progress. Please stop the current recording.',
+	}),
+	StreamAcquisition: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to acquire recording stream: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+	InitFailed: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to initialize recorder: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+});
+type RecorderError = InferErrors<typeof RecorderError>;
+
 export function createManualRecorderService() {
 	return {
 		startRecording: async (
 			recordingSettings,
 			{ sendStatus },
-		): Promise<
-			Result<DeviceAcquisitionOutcome, RecorderServiceError>
-		> => {
+		): Promise<Result<DeviceAcquisitionOutcome, RecorderError>> => {
 			if (activeRecording) {
-				return Err({
-					name: 'RecorderServiceError',
-					message:
-						'A recording is already in progress. Please stop the current recording before starting a new one.',
-					context: { activeRecording },
-					cause: undefined,
-				});
+				return RecorderError.AlreadyRecording();
 			}
 
-			// When using another service's functions, map their errors
 			const { data: streamResult, error: acquireStreamError } =
 				await getRecordingStream(selectedDeviceId, sendStatus);
 
 			if (acquireStreamError) {
-				// Transform DeviceStreamServiceError → RecorderServiceError
-				return Err({
-					name: 'RecorderServiceError',
-					message: acquireStreamError.message,
-					context: acquireStreamError.context,
+				return RecorderError.StreamAcquisition({
 					cause: acquireStreamError,
 				});
 			}
@@ -257,10 +262,10 @@ export function createManualRecorderService() {
 
 This example shows:
 
-- Service-specific error type (`RecorderServiceError`)
-- Detailed error messages for different failure scenarios
+- `defineErrors` namespace with structured variants
+- `cause: unknown` accepted in constructors, `extractErrorMessage` called inside
+- Clean call sites passing raw errors as `{ cause: error }`
 - Error mapping when consuming other services
-- Rich context for debugging
 
 ### Anti-Pattern: Double Wrapping
 
@@ -269,7 +274,7 @@ Never wrap an already-wrapped error. The query layer handles the single transfor
 ```typescript
 // ❌ BAD: Service returns tagged error, query wraps it, then UI wraps again
 if (error) {
-	const whisperingError = WhisperingErr({
+	const whisperingError = WhisperingError({
 		/* ... */
 	});
 	notify.error.execute({ ...whisperingError.error }); // Double wrapping!

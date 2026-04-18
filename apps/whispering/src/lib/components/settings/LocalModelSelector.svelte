@@ -1,19 +1,19 @@
 <script lang="ts">
-	import type { LocalModelConfig } from '$lib/services/isomorphic/transcription/local/types';
-	import FolderOpen from '@lucide/svelte/icons/folder-open';
-	import Paperclip from '@lucide/svelte/icons/paperclip';
-	import X from '@lucide/svelte/icons/x';
 	import { Button } from '@epicenter/ui/button';
 	import * as Card from '@epicenter/ui/card';
 	import { Input } from '@epicenter/ui/input';
+	import { toast } from '@epicenter/ui/sonner';
 	import * as Tabs from '@epicenter/ui/tabs';
+	import FolderOpen from '@lucide/svelte/icons/folder-open';
+	import Paperclip from '@lucide/svelte/icons/paperclip';
+	import X from '@lucide/svelte/icons/x';
 	import { basename } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/plugin-dialog';
 	import { readDir } from '@tauri-apps/plugin-fs';
 	import type { Snippet } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { extractErrorMessage } from 'wellcrafted/error';
 	import { Ok, tryAsync } from 'wellcrafted/result';
+	import type { LocalModelConfig } from '$lib/services/transcription/local/types';
 	import LocalModelDownloadCard from './LocalModelDownloadCard.svelte';
 
 	/**
@@ -182,8 +182,8 @@
 				<div>
 					<p class="text-sm font-medium mb-2">
 						{#if manualInstructions}
-							<span class="text-muted-foreground">Step 2:</span> Select the
-							model
+							<span class="text-muted-foreground">Step 2:</span>
+							Select the model
 							{fileSelectionMode === 'directory' ? 'directory' : 'file'}
 						{:else}
 							Select the model

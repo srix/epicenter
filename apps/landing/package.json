@@ -1,33 +1,34 @@
 {
 	"name": "@epicenter/landing",
+	"description": "Public landing site for Epicenter",
 	"private": true,
 	"type": "module",
 	"version": "0.0.1",
 	"scripts": {
-		"dev": "astro dev",
+		"dev": "bun run dev:local",
+		"dev:local": "astro dev",
 		"build": "astro build",
 		"preview": "astro preview",
 		"astro": "astro",
-		"deploy": "bun run build && wrangler pages deploy",
-		"lint": "eslint .",
+		"deploy": "bun run build && wrangler deploy",
 		"typecheck": "astro check && svelte-check"
 	},
 	"dependencies": {
-		"@astrojs/check": "^0.9.4",
-		"@astrojs/svelte": "^7.1.0",
+		"@astrojs/check": "0.9.7",
+		"@astrojs/svelte": "8.0.0",
 		"@epicenter/constants": "workspace:*",
 		"@epicenter/ui": "workspace:*",
-		"@tailwindcss/vite": "^4.1.11",
+		"@tailwindcss/vite": "catalog:",
 		"arktype": "catalog:",
-		"astro": "^5.12.4",
+		"astro": "6.0.4",
 		"posthog-js": "^1.258.5",
 		"svelte": "catalog:",
-		"tailwindcss": "catalog:",
-		"typescript": "catalog:"
+		"tailwindcss": "catalog:"
 	},
 	"devDependencies": {
 		"@lucide/astro": "^0.536.0",
-		"@epicenter/ui": "workspace:*",
-		"@tailwindcss/typography": "^0.5.16"
-	}
+		"@tailwindcss/typography": "catalog:",
+		"typescript": "catalog:"
+	},
+	"license": "MIT"
 }

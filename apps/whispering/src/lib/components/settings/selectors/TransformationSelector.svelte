@@ -1,26 +1,24 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { Button } from '@epicenter/ui/button';
 	import { Badge } from '@epicenter/ui/badge';
+	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
-	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
-	import { rpc } from '$lib/query';
-	import type { Transformation } from '$lib/services/isomorphic/db';
-	import { settings } from '$lib/state/settings.svelte';
+	import * as Popover from '@epicenter/ui/popover';
 	import { cn } from '@epicenter/ui/utils';
-	import { viewTransition } from '$lib/utils/viewTransitions';
-	import { createQuery } from '@tanstack/svelte-query';
 	import CheckIcon from '@lucide/svelte/icons/check';
-	import WandIcon from '@lucide/svelte/icons/wand';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import LayersIcon from '@lucide/svelte/icons/layers';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import WandIcon from '@lucide/svelte/icons/wand';
+	import { goto } from '$app/navigation';
+	import { rpc } from '$lib/query';
+	import { settings } from '$lib/state/settings.svelte';
+	import {
+		type Transformation,
+		transformations,
+	} from '$lib/state/transformations.svelte';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 
-	const transformationsQuery = createQuery(
-		() => rpc.db.transformations.getAll.options,
-	);
-
-	const transformations = $derived(transformationsQuery.data ?? []);
+	const sortedTransformations = $derived(transformations.sorted);
 
 	let {
 		class: className,
@@ -29,9 +27,8 @@
 	} = $props();
 
 	const selectedTransformation = $derived(
-		transformations.find(
-			(t) =>
-				t.id === settings.value['transformations.selectedTransformationId'],
+		sortedTransformations.find(
+			(t) => t.id === settings.get('transformation.selectedId'),
 		),
 	);
 
@@ -43,9 +40,7 @@
 		<Badge variant="id" class="shrink-0 max-w-16 truncate">
 			{transformation.id}
 		</Badge>
-		<span class="font-medium truncate">
-			{transformation.title}
-		</span>
+		<span class="font-medium truncate"> {transformation.title} </span>
 	</div>
 {/snippet}
 
@@ -84,16 +79,16 @@
 			<Command.Input placeholder="Select transcription post-processing..." />
 			<Command.Empty>No transformation found.</Command.Empty>
 			<Command.Group class="overflow-y-auto max-h-[400px]">
-				{#each transformations as transformation (transformation.id)}
+				{#each sortedTransformations as transformation (transformation.id)}
 					{@const isSelectedTransformation =
-						settings.value['transformations.selectedTransformationId'] ===
+						settings.get('transformation.selectedId') ===
 						transformation.id}
 					<Command.Item
 						value="${transformation.id} - ${transformation.title} - ${transformation.description}"
 						onSelect={() => {
-							settings.updateKey(
-								'transformations.selectedTransformationId',
-								settings.value['transformations.selectedTransformationId'] ===
+							settings.set(
+								'transformation.selectedId',
+								settings.get('transformation.selectedId') ===
 									transformation.id
 									? null
 									: transformation.id,

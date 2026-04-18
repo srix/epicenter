@@ -1,38 +1,90 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { sep } from '@tauri-apps/api/path';
 	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
-	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
+	import * as Popover from '@epicenter/ui/popover';
+	import { cn } from '@epicenter/ui/utils';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import { sep } from '@tauri-apps/api/path';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { goto } from '$app/navigation';
 	import {
 		TRANSCRIPTION_SERVICES,
 		type TranscriptionService,
-	} from '$lib/services/isomorphic/transcription/registry';
+	} from '$lib/services/transcription/registry';
 	import {
 		getSelectedTranscriptionService,
 		isTranscriptionServiceConfigured,
 	} from '$lib/settings/transcription-validation';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
 	import { settings } from '$lib/state/settings.svelte';
-	import { cn } from '@epicenter/ui/utils';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import MicIcon from '@lucide/svelte/icons/mic';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { SvelteSet } from 'svelte/reactivity';
 
 	let { class: className }: { class?: string } = $props();
 
 	const selectedService = $derived(getSelectedTranscriptionService());
 
+	function getSelectedServiceId() {
+		return settings.get('transcription.service');
+	}
+
 	function getSelectedModelNameOrUrl(service: TranscriptionService) {
 		switch (service.location) {
-			case 'cloud':
-				return settings.value[service.modelSettingKey];
+			case 'cloud': {
+				switch (service.id) {
+					case 'Groq':
+						return settings.get('transcription.groq.model');
+					case 'OpenAI':
+						return settings.get('transcription.openai.model');
+					case 'ElevenLabs':
+						return settings.get('transcription.elevenlabs.model');
+					case 'Deepgram':
+						return settings.get('transcription.deepgram.model');
+					case 'Mistral':
+						return settings.get('transcription.mistral.model');
+				}
+				break;
+			}
 			case 'self-hosted':
-				return settings.value[service.serverUrlField];
-			case 'local':
-				return settings.value[service.modelPathField];
+				return deviceConfig.get('transcription.speaches.baseUrl');
+			case 'local': {
+				switch (service.id) {
+					case 'whispercpp':
+						return deviceConfig.get('transcription.whispercpp.modelPath');
+					case 'parakeet':
+						return deviceConfig.get('transcription.parakeet.modelPath');
+					case 'moonshine':
+						return deviceConfig.get('transcription.moonshine.modelPath');
+				}
+				break;
+			}
+		}
+
+		return '';
+	}
+
+	function setSelectedCloudModel(
+		service: TranscriptionService,
+		modelName: string,
+	) {
+		switch (service.id) {
+			case 'Groq':
+				settings.set('transcription.groq.model', modelName);
+				return;
+			case 'OpenAI':
+				settings.set('transcription.openai.model', modelName);
+				return;
+			case 'ElevenLabs':
+				settings.set('transcription.elevenlabs.model', modelName);
+				return;
+			case 'Deepgram':
+				settings.set('transcription.deepgram.model', modelName);
+				return;
+			case 'Mistral':
+				settings.set('transcription.mistral.model', modelName);
+				return;
 		}
 	}
 
@@ -132,18 +184,14 @@
 				<Command.Group heading="Local">
 					{#each localServices as service (service.id)}
 						{@const isSelected =
-							settings.value['transcription.selectedTranscriptionService'] ===
-							service.id}
+							getSelectedServiceId() === service.id}
 						{@const isConfigured = isTranscriptionServiceConfigured(service)}
-						{@const modelPath = settings.value[service.modelPathField]}
+						{@const modelPath = getSelectedModelNameOrUrl(service)}
 
 						<Command.Item
 							value={`${service.id} ${service.name} whisper cpp ggml local offline`}
 							onSelect={() => {
-								settings.updateKey(
-									'transcription.selectedTranscriptionService',
-									service.id,
-								);
+								settings.set('transcription.service', service.id);
 								combobox.closeAndFocusTrigger();
 							}}
 							class="flex items-center gap-2 px-2 py-2"
@@ -174,8 +222,7 @@
 				<Command.Group heading="Cloud">
 					{#each cloudServices as service (service.id)}
 						{@const isSelected =
-							settings.value['transcription.selectedTranscriptionService'] ===
-							service.id}
+							getSelectedServiceId() === service.id}
 						{@const isConfigured = isTranscriptionServiceConfigured(service)}
 						{@const currentSelectedModelName =
 							getSelectedModelNameOrUrl(service)}
@@ -221,10 +268,11 @@
 								<Command.Item
 									value={`${service.id} ${service.name} ${model.name}`}
 									onSelect={() => {
-										settings.update({
-											'transcription.selectedTranscriptionService': service.id,
-											[service.modelSettingKey]: model.name,
-										});
+										settings.set(
+											'transcription.service',
+											service.id,
+										);
+										setSelectedCloudModel(service, model.name);
 										combobox.closeAndFocusTrigger();
 									}}
 									class="flex items-center gap-2 px-2 py-1.5 pl-11"
@@ -252,18 +300,14 @@
 				<Command.Group heading="Self-Hosted">
 					{#each selfHostedServices as service (service.id)}
 						{@const isSelected =
-							settings.value['transcription.selectedTranscriptionService'] ===
-							service.id}
+							getSelectedServiceId() === service.id}
 						{@const isConfigured = isTranscriptionServiceConfigured(service)}
-						{@const serverUrl = settings.value[service.serverUrlField]}
+						{@const serverUrl = getSelectedModelNameOrUrl(service)}
 
 						<Command.Item
 							value={`${service.id} ${service.name} self-hosted server`}
 							onSelect={() => {
-								settings.updateKey(
-									'transcription.selectedTranscriptionService',
-									service.id,
-								);
+								settings.set('transcription.service', service.id);
 								combobox.closeAndFocusTrigger();
 							}}
 							class="flex items-center gap-2 px-2 py-2"

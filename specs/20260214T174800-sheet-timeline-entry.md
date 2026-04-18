@@ -79,7 +79,7 @@ Source: [Yjs DeepWiki](https://deepwiki.com/yjs/yjs), maintainer guidance.
 | Cell value type | Always `string` | Simplest CRDT layer. Interpretation (number, date, boolean) is a column `kind` hint. Parse on read, stringify on write. Google Sheets does the same. |
 | Row ordering | Fractional indexing (string property `order`) | Y.Array reorder = delete+insert = lost updates + duplicates. Property update is atomic. Already documented in `docs/articles/fractional-ordering-meta-data-structure.md`. |
 | Column ordering | Fractional indexing (string property `order`) | Same rationale as row ordering. |
-| Row/column IDs | 10-char nanoid via `generateId()` | Stable across concurrent edits. No positional re-keying. Uses existing `generateId()` from `@epicenter/hq` (10-char alphanumeric, safe for millions of rows). Branded types `RowId` and `ColumnId`. No prefixes (raw nanoid strings). |
+| Row/column IDs | 10-char nanoid via `generateId()` | Stable across concurrent edits. No positional re-keying. Uses existing `generateId()` from `@epicenter/workspace` (10-char alphanumeric, safe for millions of rows). Branded types `RowId` and `ColumnId`. No prefixes (raw nanoid strings). |
 | Column definition versioning | No `_v` field | Y.Maps allow atomic field updates, making object-level versioning misleading. Use defensive reading (provide defaults for missing fields) + strict writing (always set all current schema fields). Additive changes (new optional fields) are safe without versioning. |
 | Column defs location | Nested Y.Map on the timeline entry | Co-located with data. No external schema reference needed. |
 | `order` as reserved key | Yes, on row Y.Map | Column IDs are nanoid-generated (e.g., `k7x9m2p4q8`), never the literal string `"order"`. No collision possible. |
@@ -243,7 +243,7 @@ Gadget,24.99,false
 Added to `packages/filesystem/src/types.ts`:
 
 ```typescript
-import { type Id, generateId } from '@epicenter/hq';
+import { type Id, generateId } from '@epicenter/workspace';
 import type { Brand } from 'wellcrafted/brand';
 
 /** Branded row identifier — a 10-char nanoid that is specifically a row ID */
@@ -263,7 +263,7 @@ export function generateColumnId(): ColumnId {
 }
 ```
 
-**Why 10-char IDs?** `generateId()` from `@epicenter/hq` produces 10-character alphanumeric strings (alphabet: `a-z0-9`), safe for ~85 million entities with 1-in-a-million collision chance. Both rows and columns are table-scoped, not globally unique, so 10 chars is sufficient.
+**Why 10-char IDs?** `generateId()` from `@epicenter/workspace` produces 10-character alphanumeric strings (alphabet: `a-z0-9`), safe for ~85 million entities with 1-in-a-million collision chance. Both rows and columns are table-scoped, not globally unique, so 10 chars is sufficient.
 
 **Why branded types?** Prevents accidentally using a `RowId` where a `ColumnId` is expected at compile time. Follows the existing `FileId` pattern in the codebase.
 
@@ -283,10 +283,10 @@ export type SheetEntry = {
 export type TimelineEntry = TextEntry | RichTextEntry | BinaryEntry | SheetEntry;
 ```
 
-Updated `ContentMode`:
+Updated `ContentType`:
 
 ```typescript
-export type ContentMode = TimelineEntry['type']; // 'text' | 'richtext' | 'binary' | 'sheet'
+export type ContentType = TimelineEntry['type']; // 'text' | 'richtext' | 'binary' | 'sheet'
 ```
 
 ### Column Definition (Type-Level Documentation)
@@ -430,7 +430,7 @@ In `packages/filesystem/src/content-ops.ts`:
 
 ```typescript
 // After existing text/binary handling:
-if (typeof data === 'string' && tl.currentMode === 'sheet') {
+if (typeof data === 'string' && tl.currentType === 'sheet') {
   // Writing a string to a sheet file: parse as CSV, update in place
   const columns = tl.currentEntry!.get('columns') as Y.Map<Y.Map<string>>;
   const rows = tl.currentEntry!.get('rows') as Y.Map<Y.Map<string>>;
@@ -512,7 +512,7 @@ All open questions have been resolved through implementation discussion.
 ### Phase 1: Types and Sheet Helpers
 
 - [ ] **1.1** Add `RowId`, `ColumnId` branded types and generator functions to `types.ts`
-- [ ] **1.2** Add `SheetEntry` type to `types.ts`, update `TimelineEntry` union and `ContentMode`
+- [ ] **1.2** Add `SheetEntry` type to `types.ts`, update `TimelineEntry` union and `ContentType`
 - [ ] **1.3** Add `ColumnDefinition` type (type-level documentation, not enforced at runtime)
 - [ ] **1.4** Create `sheet-helpers.ts` with `serializeSheetToCsv` and `parseSheetFromCsv`
 - [ ] **1.5** Add CSV escaping/parsing per RFC 4180 (hand-rolled, handle commas, quotes, newlines in cell values)

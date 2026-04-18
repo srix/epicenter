@@ -1,26 +1,27 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { Button } from '@epicenter/ui/button';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
 	import { CopyButton } from '@epicenter/ui/copy-button';
-	import * as Tooltip from '@epicenter/ui/tooltip';
-	import { TrashIcon } from '$lib/components/icons';
-	import { createCopyFn } from '$lib/utils/createCopyFn';
 	import { Skeleton } from '@epicenter/ui/skeleton';
-	import { rpc } from '$lib/query';
-	import { viewTransition } from '$lib/utils/viewTransitions';
-	import { createMutation, createQuery } from '@tanstack/svelte-query';
-	import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
 	import FileStackIcon from '@lucide/svelte/icons/file-stack';
-	import { Spinner } from '@epicenter/ui/spinner';
 	import PlayIcon from '@lucide/svelte/icons/play';
 	import RepeatIcon from '@lucide/svelte/icons/repeat';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { createMutation } from '@tanstack/svelte-query';
+	import { nanoid } from 'nanoid/non-secure';
+	import { rpc } from '$lib/query';
+	import { recordings } from '$lib/state/recordings.svelte';
+	import { transformationRuns } from '$lib/state/transformation-runs.svelte';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
+	import { recordingActions } from '$lib/utils/recording-actions';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import EditRecordingModal from './EditRecordingModal.svelte';
 	import TransformationPicker from './TransformationPicker.svelte';
 	import ViewTransformationRunsDialog from './ViewTransformationRunsDialog.svelte';
-	import { nanoid } from 'nanoid/non-secure';
 
 	const transcribeRecording = createMutation(
 		() => rpc.transcription.transcribeRecording.options,
@@ -32,15 +33,11 @@
 
 	let { recordingId }: { recordingId: string } = $props();
 
-	const latestTransformationRunByRecordingIdQuery = createQuery(
-		() => rpc.db.runs.getLatestByRecordingId(() => recordingId).options,
+	const latestRun = $derived(
+		transformationRuns.getLatestByRecordingId(recordingId),
 	);
 
-	const recordingQuery = createQuery(
-		() => rpc.db.recordings.getById(() => recordingId).options,
-	);
-
-	const recording = $derived(recordingQuery.data);
+	const recording = $derived(recordings.get(recordingId));
 </script>
 
 <div class="flex items-center gap-1">
@@ -108,35 +105,15 @@
 		<EditRecordingModal {recording} />
 
 		<CopyButton
-			text={recording.transcribedText}
+			text={recording.transcript}
 			copyFn={createCopyFn('transcript')}
 			style="view-transition-name: {viewTransition.recording(recordingId)
 				.transcript}"
 		/>
 
-		{#if latestTransformationRunByRecordingIdQuery.isPending}
-			<Spinner />
-		{:else if latestTransformationRunByRecordingIdQuery.isError}
-			<Tooltip.Root>
-				<Tooltip.Trigger>
-					{#snippet child({ props })}
-						<AlertCircleIcon
-							class="text-red-500"
-							{...props}
-							id={viewTransition.recording(recordingId).transformationOutput}
-						/>
-					{/snippet}
-				</Tooltip.Trigger>
-				<Tooltip.Content class="max-w-xs text-center">
-					Error fetching latest transformation run output
-				</Tooltip.Content>
-			</Tooltip.Root>
-		{:else}
+		{#if latestRun?.status === 'completed'}
 			<CopyButton
-				text={latestTransformationRunByRecordingIdQuery.data?.status ===
-				'completed'
-					? latestTransformationRunByRecordingIdQuery.data.output
-					: ''}
+				text={latestRun.output}
 				copyFn={createCopyFn('latest transformation run output')}
 				style="view-transition-name: {viewTransition.recording(recordingId)
 					.transformationOutput}"
@@ -183,28 +160,7 @@
 
 		<Button
 			tooltip="Delete recording"
-			onclick={() => {
-				confirmationDialog.open({
-					title: 'Delete recording',
-					description: 'Are you sure you want to delete this recording?',
-					confirm: { text: 'Delete', variant: 'destructive' },
-					onConfirm: async () => {
-						const { error } = await rpc.db.recordings.delete(recording);
-						if (error) {
-							rpc.notify.error({
-								title: 'Failed to delete recording!',
-								description: 'Your recording could not be deleted.',
-								action: { type: 'more-details', error },
-							});
-							throw error;
-						}
-						rpc.notify.success({
-							title: 'Deleted recording!',
-							description: 'Your recording has been deleted.',
-						});
-					},
-				});
-			}}
+			onclick={() => recordingActions.deleteWithConfirmation(recording)}
 			variant="ghost"
 			size="icon"
 		>

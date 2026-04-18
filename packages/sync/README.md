@@ -1,202 +1,107 @@
-# Epicenter Sync
+# @epicenter/sync
 
-Client-side Yjs sync provider for `@epicenter/server`.
+`@epicenter/sync` is the wire-format package for Epicenter sync. It owns the binary framing for Yjs sync, awareness, sync-status, and peer-to-peer RPC messages so the transport layer can stay dumb. `@epicenter/workspace` and `apps/api` use it when they need to turn a `Y.Doc` change into bytes—or turn bytes back into something the app can reason about.
 
-## What This Does
+## Installation
 
-`createSyncProvider()` connects a `Y.Doc` to a WebSocket sync server using the y-websocket protocol, plus a custom heartbeat extension (MESSAGE_SYNC_STATUS, tag 102) for `hasLocalChanges` tracking and fast dead-connection detection.
+Inside this monorepo:
 
-Most consumers don't use this package directly. Instead, they use `createSyncExtension` from `@epicenter/hq/extensions/sync`, which wraps this provider with workspace lifecycle management (waiting for persistence to load before connecting, auto-cleanup on destroy, URL templating with workspace IDs).
+```json
+{
+	"dependencies": {
+		"@epicenter/sync": "workspace:*"
+	}
+}
+```
 
-Use this package directly when you need raw Y.Doc sync without the workspace extension system.
+This package has a peer dependency on `yjs`.
 
-## Quick Start
+## Quick usage
+
+The core flow is small on purpose: encode a sync message, send it over whatever transport you want, then decode or handle it on the other side.
 
 ```typescript
-import { createSyncProvider } from '@epicenter/sync';
 import * as Y from 'yjs';
+import {
+	MESSAGE_TYPE,
+	SYNC_MESSAGE_TYPE,
+	decodeMessageType,
+	decodeSyncMessage,
+	encodeSyncStep1,
+	handleSyncPayload,
+} from '@epicenter/sync';
 
 const doc = new Y.Doc();
+doc.getMap('users').set('alice', { name: 'Alice', age: 30 });
 
-const provider = createSyncProvider({
-	doc,
-	url: 'ws://localhost:3913/rooms/my-workspace',
-});
+const step1 = encodeSyncStep1({ doc });
+const messageType = decodeMessageType(step1);
 
-// Provider connects automatically. Check status:
-provider.onStatusChange((status) => {
-	console.log('Sync status:', status);
-});
+if (messageType === MESSAGE_TYPE.SYNC) {
+	const decoded = decodeSyncMessage(step1);
 
-// Track whether local changes have reached the server:
-provider.onLocalChanges((hasChanges) => {
-	console.log(hasChanges ? 'Saving...' : 'Saved');
-});
+	if (decoded.type === 'step1') {
+		const response = handleSyncPayload({
+			syncType: SYNC_MESSAGE_TYPE.STEP1,
+			payload: decoded.stateVector,
+			doc,
+			origin: null,
+		});
 
-// Clean up when done:
-provider.destroy();
-```
-
-## Auth Modes
-
-Three authentication modes, matching `@epicenter/server`'s auth configuration:
-
-### Mode 1: Open (no auth)
-
-For localhost, Tailscale, LAN, or development:
-
-```typescript
-const provider = createSyncProvider({
-	doc,
-	url: 'ws://localhost:3913/rooms/blog',
-});
-```
-
-### Mode 2: Static Token
-
-A shared secret passed as a query parameter:
-
-```typescript
-const provider = createSyncProvider({
-	doc,
-	url: 'ws://my-server:3913/rooms/blog',
-	token: 'my-shared-secret',
-});
-```
-
-### Mode 3: Dynamic Token
-
-A function that fetches a fresh token on each connect/reconnect. Useful for JWTs with expiration:
-
-```typescript
-const provider = createSyncProvider({
-	doc,
-	url: 'wss://sync.epicenter.so/rooms/blog',
-	getToken: async () => {
-		const res = await fetch('/api/sync/token');
-		return (await res.json()).token;
-	},
-});
-```
-
-The provider caches the token and refreshes it after every 3 consecutive connection failures.
-
-## API
-
-### `createSyncProvider(config)`
-
-```typescript
-function createSyncProvider(config: SyncProviderConfig): SyncProvider;
-```
-
-**Config:**
-
-| Option                 | Type                    | Default              | Description                                                     |
-| ---------------------- | ----------------------- | -------------------- | --------------------------------------------------------------- |
-| `doc`                  | `Y.Doc`                 | (required)           | The Yjs document to sync                                        |
-| `url`                  | `string`                | (required)           | WebSocket URL to connect to                                     |
-| `token`                | `string`                | —                    | Static auth token (Mode 2). Mutually exclusive with `getToken`  |
-| `getToken`             | `() => Promise<string>` | —                    | Dynamic token fetcher (Mode 3). Mutually exclusive with `token` |
-| `connect`              | `boolean`               | `true`               | Whether to connect immediately                                  |
-| `awareness`            | `Awareness`             | `new Awareness(doc)` | External awareness instance for user presence                   |
-| `WebSocketConstructor` | `WebSocketConstructor`  | `WebSocket`          | Override for testing or non-browser environments                |
-
-**Returns `SyncProvider`:**
-
-| Property / Method    | Type                                                     | Description                                            |
-| -------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
-| `status`             | `SyncStatus` (readonly)                                  | Current connection status                              |
-| `hasLocalChanges`    | `boolean` (readonly)                                     | Whether unacknowledged local changes exist             |
-| `awareness`          | `Awareness` (readonly)                                   | The awareness instance for user presence               |
-| `connect()`          | `() => void`                                             | Start connecting. Idempotent.                          |
-| `disconnect()`       | `() => void`                                             | Stop connecting and close the socket                   |
-| `onStatusChange(fn)` | `(listener: (status: SyncStatus) => void) => () => void` | Subscribe to status changes. Returns unsubscribe.      |
-| `onLocalChanges(fn)` | `(listener: (has: boolean) => void) => () => void`       | Subscribe to local changes state. Returns unsubscribe. |
-| `destroy()`          | `() => void`                                             | Disconnect, remove all listeners, release resources    |
-
-## Connection Status Model
-
-Five states (compared to y-websocket's three):
-
-```
-  ┌─────────┐    connect()    ┌────────────┐   ws.open    ┌──────────────┐
-  │ offline │ ──────────────▶ │ connecting │ ───────────▶ │ handshaking  │
-  └─────────┘                 └────────────┘              └──────────────┘
-       ▲                           ▲                            │
-       │ disconnect()              │ backoff                    │ sync step 2
-       │                           │                            ▼
-       │                      ┌─────────┐               ┌───────────┐
-       └───────────────────── │  error  │ ◀──────────── │ connected │
-                              └─────────┘   ws.close    └───────────┘
-```
-
-| Status        | Meaning                                                 |
-| ------------- | ------------------------------------------------------- |
-| `offline`     | Not connected, not trying to connect                    |
-| `connecting`  | Opening a WebSocket (or fetching a token)               |
-| `handshaking` | WebSocket open, Yjs sync step 1/2 in progress           |
-| `connected`   | Fully synced and communicating                          |
-| `error`       | Connection failed, will retry after exponential backoff |
-
-## `hasLocalChanges`
-
-Tracks whether all local Y.Doc mutations have been acknowledged by the server.
-
-The provider sends a MESSAGE_SYNC_STATUS (tag 102) frame after each local edit containing a monotonic version counter. The server echoes it back unchanged. When the echoed version matches the local version, all changes have reached the server.
-
-This powers "Saving..." / "Saved" UI indicators and `beforeunload` warnings:
-
-```typescript
-provider.onLocalChanges((hasChanges) => {
-	statusBar.text = hasChanges ? 'Saving...' : 'Saved';
-});
-
-window.addEventListener('beforeunload', (e) => {
-	if (provider.hasLocalChanges) {
-		e.preventDefault();
+		// send response over WebSocket, HTTP, BroadcastChannel, or anything else
 	}
-});
+}
 ```
 
-## Heartbeat
+That example is the same shape used in the package tests and in the API room bootstrap, where the server starts a connection with `encodeSyncStep1({ doc })`.
 
-The same MESSAGE_SYNC_STATUS message doubles as a heartbeat probe:
+## Dumb server, separate transport
 
-- After **2 seconds** of silence (no messages sent or received), the provider sends a probe
-- If no response arrives within **3 seconds**, the WebSocket is closed and reconnection begins
-- Worst-case dead connection detection: **5 seconds**
+This package is strict about one boundary: it handles protocol framing, not connection management. That split is why the same message helpers work over WebSockets, one-shot HTTP sync, or any custom relay you want to write.
 
-The heartbeat timeout only arms after the server has responded to at least one probe (proving it supports tag 102). This prevents false-positive disconnects from standard y-websocket servers.
+The design shows up in a few places:
 
-Browser `offline` events trigger an immediate probe. Browser `online` events wake the reconnect backoff sleeper.
+- `encodeSyncStep1`, `encodeSyncStep2`, and `encodeSyncUpdate` only deal with Yjs payloads.
+- `encodeSyncRequest` and `decodeSyncRequest` collapse the WebSocket handshake into a binary HTTP request/response format.
+- `encodeSyncStatus` uses an echoed version counter for save-state UX; the server can relay the payload unchanged.
+- RPC framing is separate from RPC behavior. The package defines request/response bytes and shared error variants, not the transport policy around retries or timeouts.
 
-## Architecture
+If you want lifecycle helpers for a WebSocket server, this package is the protocol layer under them—not the server itself.
 
-The provider uses a **supervisor loop** architecture:
+## API overview
 
-- One `async` loop owns all status transitions and reconnection decisions
-- WebSocket event handlers (`onopen`, `onclose`, `onmessage`) are reporters only — they resolve promises that the loop awaits, but never make reconnection decisions
-- Exponential backoff with a wakeable sleeper (woken by browser `online` events)
+Main exports from `src/index.ts`:
 
-This eliminates the race conditions common in event-driven WebSocket reconnection logic.
+- Message constants: `MESSAGE_TYPE`, `SYNC_MESSAGE_TYPE`, `RPC_TYPE`
+- Sync encode/decode: `encodeSyncStep1`, `encodeSyncStep2`, `encodeSyncUpdate`, `decodeSyncMessage`, `handleSyncPayload`
+- Awareness helpers: `encodeAwareness`, `encodeAwarenessStates`, `encodeQueryAwareness`
+- HTTP sync helpers: `encodeSyncRequest`, `decodeSyncRequest`
+- Save-status helpers: `encodeSyncStatus`, `decodeSyncStatus`, `stateVectorsEqual`
+- RPC helpers: `encodeRpcRequest`, `encodeRpcResponse`, `decodeRpcMessage`, `decodeRpcPayload`
+- RPC types and guards: `DecodedRpcMessage`, `RpcError`, `isRpcError`
 
-## Relationship to Other Packages
+The package exports pure functions. Feed them bytes and docs; they give you bytes or decoded shapes back.
 
+## Relationship to other packages
+
+`@epicenter/sync` sits below the rest of the sync stack.
+
+```text
+apps/api                durable-object rooms, websocket handling
+        │
+@epicenter/workspace    client sync extension, rpc helpers
+        │
+@epicenter/sync         protocol framing and shared rpc error types
+        │
+yjs + y-protocols       crdt state, awareness, update encoding
 ```
-@epicenter/hq                          @epicenter/server
- └─ extensions/sync.ts                  └─ sync/index.ts (Elysia plugin)
-     │                                      │
-     │  createSyncExtension()               │  createSyncPlugin()
-     │  - URL templating ({id})             │  - WebSocket endpoint
-     │  - Waits for persistence             │  - y-websocket protocol
-     │  - Lifecycle management              │  - MESSAGE_SYNC_STATUS echo
-     │                                      │  - Ping/pong keepalive
-     └──── uses ────▶ @epicenter/sync ◀──── talks to ────┘
-                      └─ createSyncProvider()
-                      └─ Supervisor loop
-                      └─ Heartbeat + hasLocalChanges
-```
 
-- **`@epicenter/sync`** (this package): Raw sync provider. Connects a Y.Doc to a WebSocket.
-- **`@epicenter/server`**: The server that this provider connects to. Exposes `ws://host:port/rooms/{id}`.
-- **`@epicenter/hq/extensions/sync`**: Workspace extension wrapper. Most consumers use this instead of the raw provider.
+In practice:
+
+- `apps/api` uses it to compute initial room messages and decode incoming sync traffic.
+- `@epicenter/workspace` uses it in the client sync extension.
+- Other packages do not need to know about the wire format unless they are implementing a transport.
+
+## License
+
+AGPL-3.0. That matches the package manifest and the repository's split-license model for sync infrastructure.

@@ -1,23 +1,21 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import { Badge } from '@epicenter/ui/badge';
 import { Button } from '@epicenter/ui/button';
 import * as Card from '@epicenter/ui/card';
-import { Badge } from '@epicenter/ui/badge';
-import PrinciplesRotatingHeadline from '../components/PrinciplesRotatingHeadline.svelte';
 import {
 	ArrowRight as ArrowRightIcon,
 	Check as CheckIcon,
+	Code as CodeIcon,
 	FolderOpen as FolderOpenIcon,
 	GitFork as GitForkIcon,
-	Shield as ShieldIcon,
-	Terminal as TerminalIcon,
 	HardDrive as HardDriveIcon,
-	Sparkles as SparklesIcon,
 	Link2 as Link2Icon,
-	Code2 as Code2Icon,
-	Zap as ZapIcon,
 	Rocket as RocketIcon,
+	Sparkles as SparklesIcon,
+	Zap as ZapIcon,
 } from '@lucide/astro';
+import PrinciplesRotatingHeadline from '../components/PrinciplesRotatingHeadline.svelte';
+import BaseLayout from '../layouts/BaseLayout.astro';
 
 const userPrinciples = [
 	{
@@ -40,7 +38,7 @@ const userPrinciples = [
 
 const developerPrinciples = [
 	{
-		icon: Code2Icon,
+		icon: CodeIcon,
 		title: 'Free and open source',
 		description: 'Audit the code. Fork it. Make it yours.',
 	},
@@ -112,11 +110,27 @@ const ecosystem = [
 			'Supercharge your workflow with AI that understands your context',
 	},
 ];
+
+const quickstartCodeHtml = `<span class="text-violet-400">import</span> { defineTable, defineWorkspace, createWorkspace } <span class="text-violet-400">from</span> <span class="text-emerald-400">'@epicenter/workspace'</span>
+
+<span class="text-violet-400">const</span> posts = <span class="text-amber-300">defineTable</span>({
+  _v: <span class="text-amber-300">1</span>,
+  title: { schema: <span class="text-emerald-400">'string'</span> },
+  published: { schema: <span class="text-emerald-400">'boolean'</span>, default: <span class="text-amber-300">false</span> },
+})
+
+<span class="text-violet-400">const</span> workspace = <span class="text-amber-300">defineWorkspace</span>({
+  id: <span class="text-emerald-400">'my-app'</span>,
+  tables: { posts },
+})
+
+<span class="text-violet-400">const</span> client = <span class="text-amber-300">createWorkspace</span>(workspace)
+client.tables.posts.<span class="text-amber-300">set</span>({ id: <span class="text-emerald-400">'hello'</span>, title: <span class="text-emerald-400">'Hello World'</span>, published: <span class="text-amber-300">true</span> })`;
 ---
 
 <BaseLayout
-	title="Epicenter: A Database for Your Mind"
-	description="An ecosystem of open-source, local-first apps that share a single memory. No cloud lock-in, no subscriptions, just tools that respect your data."
+	title="Epicenter — Local-First, Open-Source Apps"
+	description="One folder of plain text and SQLite. Every tool shares this memory. Open source, local-first, self-hostable."
 >
 	<main class="bg-background">
 		<!-- Hero Section -->
@@ -124,8 +138,7 @@ const ecosystem = [
 			<!-- Subtle gradient background -->
 			<div
 				class="absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background -z-10"
-			>
-			</div>
+			></div>
 
 			<div class="w-full max-w-6xl mx-auto px-6 sm:px-8 md:px-12 text-center">
 				<div>
@@ -133,36 +146,34 @@ const ecosystem = [
 					<h1
 						class="text-4xl md:text-5xl font-bold text-foreground tracking-tight leading-snug md:leading-snug mb-8"
 					>
-						A Database for Your Mind,<br />
-						Built on Plain Text
+						Local-First, Open-Source Apps
 					</h1>
 
 					<!-- Subheadline -->
 					<p
 						class="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12"
 					>
-						One shared context across all your apps. Your transcripts inform
-						your notes. Your notes guide your AI. Everything connects through a
-						single folder of plain text and SQLite.
+						One folder of plain text and SQLite on your machine. Every tool we
+						build shares this memory. It's open, tweakable, and yours.
 					</p>
 
 					<!-- CTAs -->
 					<div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
 						<Button
-							href="https://go.epicenter.so/discord"
+							href="https://github.com/EpicenterHQ/epicenter"
 							size="lg"
 							class="font-medium"
 						>
-							Join the Discord
+							Star on GitHub
 							<ArrowRightIcon class="w-4 h-4" />
 						</Button>
 						<Button
-							href="https://github.com/EpicenterHQ/epicenter"
+							href="https://go.epicenter.so/discord"
 							variant="outline"
 							size="lg"
 							class="font-medium"
 						>
-							Explore on GitHub
+							Join the Discord
 						</Button>
 					</div>
 
@@ -207,17 +218,16 @@ const ecosystem = [
 				</div>
 
 				<div class="grid lg:grid-cols-2 gap-8">
-					{
-						tools.map((tool) => (
-							<Card.Root class="overflow-hidden border-muted/50 shadow-sm hover:shadow-xl hover:border-primary/20 transition-all duration-300 group">
+					{tools.map((tool) => (
+							<Card.Root class="group overflow-hidden border-muted/50 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-xl">
 								<Card.Header class="pb-4">
 									<div class="flex items-start justify-between">
 										<div class="flex items-start gap-4">
-											<div class="text-5xl group-hover:scale-110 transition-transform duration-300">
+											<div class="text-5xl transition-transform duration-300 group-hover:scale-110">
 												{tool.emoji}
 											</div>
 											<div>
-												<Card.Title class="text-2xl mb-2">
+												<Card.Title class="mb-2 text-2xl">
 													{tool.name}
 												</Card.Title>
 												<Card.Description class="text-base">
@@ -231,25 +241,25 @@ const ecosystem = [
 									<ul class="space-y-3">
 										{tool.features.map((feature) => (
 											<li class="flex items-center gap-3 text-sm">
-												<div class="p-1 rounded-full bg-success/10 shrink-0">
-													<CheckIcon class="w-3 h-3 text-success" />
+												<div class="shrink-0 rounded-full bg-success/10 p-1">
+													<CheckIcon class="h-3 w-3 text-success" />
 												</div>
-												<span class="text-muted-foreground group-hover:text-foreground transition-colors">
+												<span class="text-muted-foreground transition-colors group-hover:text-foreground">
 													{feature}
 												</span>
 											</li>
 										))}
 									</ul>
 								</Card.Content>
-								<Card.Footer class="pt-4 border-t border-muted/50">
+								<Card.Footer class="border-muted/50 border-t pt-4">
 									<div class="flex gap-2">
 										<Button
 											href={tool.tryNowUrl}
 											variant="secondary"
-											class="flex-1 group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
+											class="flex-1 transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground"
 										>
 											Try Now
-											<ArrowRightIcon class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+											<ArrowRightIcon class="h-4 w-4 transition-transform group-hover:translate-x-1" />
 										</Button>
 										<Button
 											href={tool.githubUrl}
@@ -261,8 +271,7 @@ const ecosystem = [
 									</div>
 								</Card.Footer>
 							</Card.Root>
-						))
-					}
+						))}
 				</div>
 
 				<div class="mt-16 text-center">
@@ -278,6 +287,54 @@ const ecosystem = [
 						Get early access
 						<ArrowRightIcon class="w-4 h-4" />
 					</Button>
+				</div>
+			</div>
+		</section>
+
+		<!-- Quick Start -->
+		<section class="py-24 md:py-32">
+			<div class="max-w-4xl mx-auto px-6">
+				<div class="text-center mb-16">
+					<Badge variant="secondary" class="mb-6 px-4 py-1 text-sm"
+						>Quick Start</Badge
+					>
+					<h2 class="text-3xl md:text-5xl font-bold text-foreground mb-6">
+						From zero to workspace in 30 seconds
+					</h2>
+				</div>
+
+				<div class="space-y-4">
+					<div
+						class="rounded-2xl bg-zinc-950 border border-zinc-800 overflow-hidden"
+					>
+						<div
+							class="flex items-center gap-2 px-4 py-3 border-b border-zinc-800"
+						>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<span class="ml-2 text-xs text-zinc-500 font-mono">terminal</span>
+						</div>
+						<pre
+							class="p-6 overflow-x-auto"
+						><code class="text-sm font-mono text-zinc-100"><span class="text-zinc-500">$</span> bun add @epicenter/workspace</code></pre>
+					</div>
+
+					<div
+						class="rounded-2xl bg-zinc-950 border border-zinc-800 overflow-hidden"
+					>
+						<div
+							class="flex items-center gap-2 px-4 py-3 border-b border-zinc-800"
+						>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<div class="w-3 h-3 rounded-full bg-zinc-700"></div>
+							<span class="ml-2 text-xs text-zinc-500 font-mono">app.ts</span>
+						</div>
+						<pre
+							class="p-6 overflow-x-auto"
+						><code class="text-sm font-mono text-zinc-100" set:html={quickstartCodeHtml} /></pre>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -304,23 +361,21 @@ const ecosystem = [
 							For you
 						</h3>
 						<div class="space-y-6">
-							{
-								userPrinciples.map((principle) => (
+							{userPrinciples.map((principle) => (
 									<div class="flex items-start gap-4">
-										<div class="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors shrink-0">
-											<principle.icon class="w-5 h-5" />
-										</div>
+									<div class="shrink-0 rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary/15">
+										<principle.icon class="h-5 w-5" />
+									</div>
 										<div>
-											<h4 class="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">
+											<h4 class="mb-2 font-semibold text-lg transition-colors group-hover:text-primary">
 												{principle.title}
 											</h4>
-											<p class="text-muted-foreground leading-relaxed text-sm">
+											<p class="text-muted-foreground text-sm leading-relaxed">
 												{principle.description}
 											</p>
 										</div>
 									</div>
-								))
-							}
+								))}
 						</div>
 					</div>
 
@@ -334,23 +389,21 @@ const ecosystem = [
 							For developers
 						</h3>
 						<div class="space-y-6">
-							{
-								developerPrinciples.map((principle) => (
+							{developerPrinciples.map((principle) => (
 									<div class="flex items-start gap-4">
-										<div class="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors shrink-0">
-											<principle.icon class="w-5 h-5" />
-										</div>
+									<div class="shrink-0 rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary/15">
+										<principle.icon class="h-5 w-5" />
+									</div>
 										<div>
-											<h4 class="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">
+											<h4 class="mb-2 font-semibold text-lg transition-colors group-hover:text-primary">
 												{principle.title}
 											</h4>
-											<p class="text-muted-foreground leading-relaxed text-sm">
+											<p class="text-muted-foreground text-sm leading-relaxed">
 												{principle.description}
 											</p>
 										</div>
 									</div>
-								))
-							}
+								))}
 						</div>
 					</div>
 				</div>
@@ -376,9 +429,9 @@ const ecosystem = [
 					>
 						<div class="flex items-start gap-4">
 							<div
-								class="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors shrink-0"
+								class="shrink-0 rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary/15"
 							>
-								<FolderOpenIcon class="w-6 h-6" />
+								<FolderOpenIcon class="h-6 w-6" />
 							</div>
 							<div>
 								<h3 class="text-xl font-bold text-foreground mb-3">
@@ -456,25 +509,23 @@ const ecosystem = [
 				</div>
 
 				<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-					{
-						ecosystem.map((tool) => (
-							<div class="group p-6 rounded-xl bg-card border border-muted/50 hover:shadow-lg transition-all duration-300 cursor-default">
+					{ecosystem.map((tool) => (
+							<div class="group cursor-default rounded-xl border border-muted/50 bg-card p-6 transition-all duration-300 hover:shadow-lg">
 								<div class="flex items-start gap-4">
-									<div class="text-4xl group-hover:scale-110 transition-transform duration-300 shrink-0">
+									<div class="shrink-0 text-4xl transition-transform duration-300 group-hover:scale-110">
 										{tool.icon}
 									</div>
 									<div>
-										<h3 class="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+										<h3 class="mb-2 font-semibold text-foreground text-lg transition-colors group-hover:text-primary">
 											{tool.name}
 										</h3>
-										<p class="text-sm text-muted-foreground leading-relaxed">
+										<p class="text-muted-foreground text-sm leading-relaxed">
 											{tool.description}
 										</p>
 									</div>
 								</div>
 							</div>
-						))
-					}
+						))}
 
 					<!-- Custom Tool Card -->
 					<div
@@ -498,6 +549,64 @@ const ecosystem = [
 								</p>
 							</div>
 						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- FAQ -->
+		<section class="py-24 md:py-32">
+			<div class="max-w-4xl mx-auto px-6">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl md:text-5xl font-bold text-foreground mb-6">
+						Frequently asked questions
+					</h2>
+				</div>
+
+				<div class="space-y-6">
+					<div class="p-8 rounded-2xl bg-card border border-muted/50">
+						<h3 class="text-lg font-semibold text-foreground mb-3">
+							How is this different from Obsidian?
+						</h3>
+						<p class="text-muted-foreground leading-relaxed">
+							Obsidian is a Markdown editor with sync. Epicenter is a
+							local-first storage substrate—multiple apps share the same
+							CRDT-backed data folder. Your notes, transcripts, and chat
+							histories all live together and sync conflict-free.
+						</p>
+					</div>
+
+					<div class="p-8 rounded-2xl bg-card border border-muted/50">
+						<h3 class="text-lg font-semibold text-foreground mb-3">
+							Is my data encrypted?
+						</h3>
+						<p class="text-muted-foreground leading-relaxed">
+							Encryption is opt-in per workspace. When enabled, Epicenter uses
+							XChaCha20-Poly1305 for data and HKDF-SHA256 for key derivation.
+							The sync server is a relay—it never sees your content.
+						</p>
+					</div>
+
+					<div class="p-8 rounded-2xl bg-card border border-muted/50">
+						<h3 class="text-lg font-semibold text-foreground mb-3">
+							Can I self-host?
+						</h3>
+						<p class="text-muted-foreground leading-relaxed">
+							Yes. The sync server is open source and runs on Cloudflare Workers
+							or any WebSocket-compatible host. You can also run entirely
+							offline—sync is optional.
+						</p>
+					</div>
+
+					<div class="p-8 rounded-2xl bg-card border border-muted/50">
+						<h3 class="text-lg font-semibold text-foreground mb-3">
+							What happens if I stop using Epicenter?
+						</h3>
+						<p class="text-muted-foreground leading-relaxed">
+							Your data is plain text and SQLite files on your disk. Open them
+							with any text editor, query them with any SQLite tool. No export
+							needed—the files are the product.
+						</p>
 					</div>
 				</div>
 			</div>
@@ -529,20 +638,20 @@ const ecosystem = [
 
 				<div class="mt-16 flex flex-col sm:flex-row gap-4 justify-center">
 					<Button
-						href="https://go.epicenter.so/discord"
+						href="https://github.com/EpicenterHQ/epicenter"
 						size="lg"
 						class="shadow-sm hover:shadow-md transition-all"
 					>
-						Join our Discord
+						Contribute on GitHub
 						<ArrowRightIcon class="w-4 h-4" />
 					</Button>
 					<Button
-						href="https://github.com/EpicenterHQ/epicenter"
+						href="https://go.epicenter.so/discord"
 						variant="outline"
 						size="lg"
 						class="hover:bg-muted/50 transition-all"
 					>
-						Contribute on GitHub
+						Join our Discord
 					</Button>
 				</div>
 			</div>
@@ -555,7 +664,8 @@ const ecosystem = [
 					class="flex flex-col md:flex-row justify-between items-center gap-6"
 				>
 					<div class="text-sm text-muted-foreground">
-						© {new Date().getFullYear()} Epicenter. Open source under AGPL-3.0 license.
+						© {new Date().getFullYear()} Epicenter. Open source under AGPL-3.0
+						license.
 					</div>
 					<div class="flex gap-8 text-sm">
 						<a

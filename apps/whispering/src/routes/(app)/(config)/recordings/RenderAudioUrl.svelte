@@ -1,19 +1,19 @@
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
+	import { onDestroy } from 'svelte';
 	import { rpc } from '$lib/query';
 	import { services } from '$lib/services';
 	import { viewTransition } from '$lib/utils/viewTransitions';
-	import { createQuery } from '@tanstack/svelte-query';
-	import { onDestroy } from 'svelte';
 
 	let { id }: { id: string } = $props();
 
 	const audioUrlQuery = createQuery(
-		() => rpc.db.recordings.getAudioPlaybackUrl(() => id).options,
+		() => rpc.audio.getPlaybackUrl(() => id).options,
 	);
 
 	onDestroy(() => {
 		// Clean up audio URL when component unmounts to prevent memory leaks
-		services.db.recordings.revokeAudioUrl(id);
+		services.blobs.audio.revokeUrl(id);
 	});
 </script>
 

@@ -1,18 +1,37 @@
 ---
 name: error-handling
-description: Error handling patterns using wellcrafted trySync and tryAsync. Use when writing error handling code, using try-catch blocks, or working with Result types and graceful error recovery.
+description: Error handling patterns using wellcrafted trySync and tryAsync, and toastOnError for surfacing errors to users. Use when writing or reviewing try-catch blocks, refactoring try-catch to linear control flow, working with Result types, showing error toasts, or returning HTTP error responses from route handlers.
 metadata:
   author: epicenter
-  version: '1.1'
+  version: '2.0'
 ---
 
 # Error Handling with wellcrafted trySync and tryAsync
+
+## When to Apply This Skill
+
+Use this pattern when you need to:
+
+- Replace recoverable `try-catch` blocks with `trySync` or `tryAsync`.
+- Handle fallback success paths via `Ok(...)` and propagate failures with `Err(...)`.
+- Wrap caught exceptions as `cause` for typed domain error constructors.
+- Refactor nested error branches into immediate-return linear control flow.
+- Convert handler failures into HTTP status responses with explicit guards.
+
+## References
+
+Load these on demand based on what you're working on:
+
+- If working with **wrapping boundaries, minimal vs extended wrapping, or immediate-return control flow**, read [references/wrapping-patterns.md](references/wrapping-patterns.md)
+- If working with **toast notifications for errors** (`toastOnError`, `extractErrorMessage` in UI), read [references/toast-on-error.md](references/toast-on-error.md)
+- If working with **real-world codebase examples and wrapping scenario guidelines**, read [references/real-world-examples.md](references/real-world-examples.md)
+- If working with **HTTP route handlers and status-response error conversion**, read [references/http-handlers.md](references/http-handlers.md)
 
 ## Use trySync/tryAsync Instead of try-catch for Graceful Error Handling
 
 When handling errors that can be gracefully recovered from, use `trySync` (for synchronous code) or `tryAsync` (for asynchronous code) from wellcrafted instead of traditional try-catch blocks. This provides better type safety and explicit error handling.
 
-> **Related Skills**: See `services-layer` skill for `createTaggedError` patterns. See `query-layer` skill for error transformation to `WhisperingError`.
+> **Related Skills**: See `services-layer` skill for `defineErrors` patterns and service architecture. See `query-layer` skill for error transformation to `WhisperingError`.
 
 ### The Pattern
 
@@ -52,11 +71,8 @@ const syncResult = trySync({
 	catch: (error) => {
 		// For recoverable errors, return Ok with fallback value
 		return Ok('fallback-value');
-		// For unrecoverable errors, return Err
-		return ServiceErr({
-			message: 'Operation failed',
-			cause: error,
-		});
+		// For unrecoverable errors, pass the raw cause — the constructor handles extractErrorMessage
+		return CompletionError.ConnectionFailed({ cause: error });
 	},
 });
 ```
@@ -69,16 +85,26 @@ const syncResult = trySync({
 4. **Match return types** - If the try block returns `T`, the catch should return `Ok<T>` for graceful handling
 5. **Use Ok(undefined) for void** - When the function returns void, use `Ok(undefined)` in the catch
 6. **Return Err for propagation** - Use custom error constructors that return `Err` when you want to propagate the error
-7. **CRITICAL: Wrap destructured errors with Err()** - When you destructure `{ data, error }` from tryAsync/trySync, the `error` variable is the raw error value, NOT wrapped in `Err`. You must wrap it before returning:
+7. **Transform cause in the constructor, not the call site** - When wrapping a caught error, pass the raw error as `cause: unknown` and let the `defineErrors` constructor call `extractErrorMessage(cause)` inside its message template. Don't call `extractErrorMessage` at the call site. This centralizes message extraction where the message is composed:
 
 ```typescript
-// WRONG - error is just the raw TaggedError, not a Result
+// ✅ GOOD: cause: error at call site, extractErrorMessage in constructor
+catch: (error) => CompletionError.ConnectionFailed({ cause: error })
+
+// ❌ BAD: extractErrorMessage at call site, string passed to constructor
+catch: (error) => CompletionError.ConnectionFailed({ underlyingError: extractErrorMessage(error) })
+```
+
+8. **CRITICAL: Wrap destructured errors with Err()** - When you destructure `{ data, error }` from tryAsync/trySync, the `error` variable is the raw error value, NOT wrapped in `Err`. You must wrap it before returning:
+
+```typescript
+// WRONG - error is just the raw error value, not a Result
 const { data, error } = await tryAsync({...});
-if (error) return error; // TYPE ERROR: Returns TaggedError, not Result
+if (error) return error; // TYPE ERROR: Returns raw error, not Result
 
 // CORRECT - wrap with Err() to return a proper Result
 const { data, error } = await tryAsync({...});
-if (error) return Err(error); // Returns Err<TaggedError>
+if (error) return Err(error); // Returns Err<CustomError>
 ```
 
 This is different from returning the entire result object:
@@ -128,13 +154,11 @@ const { data: content } = await tryAsync({
 });
 
 // EITHER: Error propagation (works with both)
+// Pass the raw caught error as cause — the defineErrors constructor calls extractErrorMessage
 const { data, error } = await tryAsync({
 	try: () => criticalOperation(),
 	catch: (error) =>
-		ServiceErr({
-			message: 'Critical operation failed',
-			cause: error,
-		}),
+		CompletionError.ConnectionFailed({ cause: error }),
 });
 if (error) return Err(error);
 ```
@@ -158,170 +182,3 @@ if (error) return Err(error);
   - For simple fire-and-forget operations
   - When you're outside of a function context
   - When integrating with code that expects thrown exceptions
-
-## Wrapping Patterns: Minimal vs Extended
-
-### The Minimal Wrapping Principle
-
-**Wrap only the specific operation that can fail.** This captures the error boundary precisely and makes code easier to reason about.
-
-```typescript
-// ✅ GOOD: Wrap only the risky operation
-const { data: stream, error: streamError } = await tryAsync({
-	try: () => navigator.mediaDevices.getUserMedia({ audio: true }),
-	catch: (error) =>
-		DeviceStreamServiceErr({
-			message: `Microphone access failed: ${extractErrorMessage(error)}`,
-		}),
-});
-
-if (streamError) return Err(streamError);
-
-// Continue with non-throwing operations
-const mediaRecorder = new MediaRecorder(stream);
-mediaRecorder.start();
-```
-
-```typescript
-// ❌ BAD: Wrapping too much code
-const { data, error } = await tryAsync({
-	try: async () => {
-		const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-		const mediaRecorder = new MediaRecorder(stream);
-		mediaRecorder.start();
-		await someOtherAsyncCall();
-		return processResults();
-	},
-	catch: (error) => GenericErr({ message: 'Something failed' }), // Too vague!
-});
-```
-
-### The Immediate Return Pattern
-
-**Return errors immediately after checking.** This creates clear control flow and prevents error nesting.
-
-```typescript
-// ✅ GOOD: Check and return immediately
-const { data: devices, error: enumerateError } = await enumerateDevices();
-if (enumerateError) return Err(enumerateError);
-
-const { data: stream, error: streamError } = await getStreamForDevice(
-	devices[0],
-);
-if (streamError) return Err(streamError);
-
-// Happy path continues cleanly
-return Ok(stream);
-```
-
-```typescript
-// ❌ BAD: Nested error handling
-const { data: devices, error: enumerateError } = await enumerateDevices();
-if (!enumerateError) {
-	const { data: stream, error: streamError } = await getStreamForDevice(
-		devices[0],
-	);
-	if (!streamError) {
-		return Ok(stream);
-	} else {
-		return Err(streamError);
-	}
-} else {
-	return Err(enumerateError);
-}
-```
-
-### When to Extend the Try Block
-
-Sometimes it makes sense to include multiple operations in a single try block:
-
-1. **Atomic operations** - When operations must succeed or fail together
-2. **Same error type** - When all operations produce the same error category
-3. **Cleanup logic** - When you need to clean up on any failure
-
-```typescript
-// Extended block is appropriate here - all operations are part of "starting recording"
-const { data: mediaRecorder, error: recorderError } = trySync({
-	try: () => {
-		const recorder = new MediaRecorder(stream, { bitsPerSecond: bitrate });
-		recorder.addEventListener('dataavailable', handleData);
-		recorder.start(TIMESLICE_MS);
-		return recorder;
-	},
-	catch: (error) =>
-		RecorderServiceErr({
-			message: `Failed to initialize recorder: ${extractErrorMessage(error)}`,
-		}),
-});
-```
-
-### Real-World Examples from the Codebase
-
-**Minimal wrap with immediate return:**
-
-```typescript
-// From device-stream.ts
-async function getStreamForDeviceIdentifier(
-	deviceIdentifier: DeviceIdentifier,
-) {
-	return tryAsync({
-		try: async () => {
-			const stream = await navigator.mediaDevices.getUserMedia({
-				audio: { ...constraints, deviceId: { exact: deviceIdentifier } },
-			});
-			return stream;
-		},
-		catch: (error) =>
-			DeviceStreamServiceErr({
-				message: `Unable to connect to microphone. ${extractErrorMessage(error)}`,
-			}),
-	});
-}
-```
-
-**Multiple minimal wraps with immediate returns:**
-
-```typescript
-// From navigator.ts
-startRecording: async (params, { sendStatus }) => {
-  if (activeRecording) {
-    return RecorderServiceErr({ message: 'Already recording.' });
-  }
-
-  // First try block - get stream
-  const { data: streamResult, error: acquireStreamError } =
-    await getRecordingStream({ selectedDeviceId, sendStatus });
-  if (acquireStreamError) return Err(acquireStreamError);
-
-  const { stream, deviceOutcome } = streamResult;
-
-  // Second try block - create recorder
-  const { data: mediaRecorder, error: recorderError } = trySync({
-    try: () => new MediaRecorder(stream, { bitsPerSecond: bitrate }),
-    catch: (error) => RecorderServiceErr({
-      message: `Failed to initialize recorder. ${extractErrorMessage(error)}`,
-    }),
-  });
-
-  if (recorderError) {
-    cleanupRecordingStream(stream);  // Cleanup on failure
-    return Err(recorderError);
-  }
-
-  // Happy path continues...
-  mediaRecorder.start(TIMESLICE_MS);
-  return Ok(deviceOutcome);
-},
-```
-
-### Summary: Wrapping Guidelines
-
-| Scenario                                     | Approach                                          |
-| -------------------------------------------- | ------------------------------------------------- |
-| Single risky operation                       | Wrap just that operation                          |
-| Sequential operations                        | Wrap each separately, return immediately on error |
-| Atomic operations that must succeed together | Wrap together in one block                        |
-| Different error types needed                 | Separate blocks with appropriate error types      |
-| Need cleanup on failure                      | Wrap, check error, cleanup if needed, return      |
-
-**The goal**: Each `trySync`/`tryAsync` block should represent a single "unit of failure" with a specific, descriptive error message.

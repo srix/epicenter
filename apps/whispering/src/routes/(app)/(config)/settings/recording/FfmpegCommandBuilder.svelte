@@ -1,26 +1,27 @@
 <script lang="ts">
+	import { Button } from '@epicenter/ui/button';
 	import * as Field from '@epicenter/ui/field';
-	import * as Select from '@epicenter/ui/select';
 	import { Input } from '@epicenter/ui/input';
-	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
-	import { PATHS } from '$lib/constants/paths';
-	import { PLATFORM_TYPE } from '$lib/constants/platform';
-	import { settings } from '$lib/state/settings.svelte';
-	import { rpc } from '$lib/query';
+	import * as SectionHeader from '@epicenter/ui/section-header';
+	import * as Select from '@epicenter/ui/select';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { join } from '@tauri-apps/api/path';
 	import { nanoid } from 'nanoid/non-secure';
-	import { Button } from '@epicenter/ui/button';
-	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import { SAMPLE_RATE_OPTIONS } from '$lib/constants/audio';
+	import { PATHS } from '$lib/constants/paths';
+	import { PLATFORM_TYPE } from '$lib/constants/platform';
+	import { rpc } from '$lib/query';
 	import {
 		buildFfmpegCommand,
-		formatDeviceForPlatform,
-		getFileExtensionFromFfmpegOptions,
 		FFMPEG_DEFAULT_DEVICE_IDENTIFIER,
 		FFMPEG_DEFAULT_GLOBAL_OPTIONS,
 		FFMPEG_DEFAULT_INPUT_OPTIONS,
 		FFMPEG_DEFAULT_OUTPUT_OPTIONS,
+		formatDeviceForPlatform,
+		getFileExtensionFromFfmpegOptions,
 	} from '$lib/services/desktop/recorder/ffmpeg';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
 
 	// Generate realistic recording ID for preview
 	const SAMPLE_RECORDING_ID = nanoid();
@@ -44,7 +45,7 @@
 	const selectedDeviceId = $derived(
 		// First, try to find the user's selected device
 		getDevicesQuery.data?.find(
-			(d) => d.id === settings.value['recording.ffmpeg.deviceId'],
+			(d) => d.id === deviceConfig.get('recording.ffmpeg.deviceId'),
 		)?.id ??
 			// Then fall back to the first available device
 			getDevicesQuery.data?.at(0)?.id ??
@@ -173,7 +174,7 @@
 	// Function to update the preview command
 	async function updatePreviewCommand() {
 		const outputFolder =
-			settings.value['recording.cpal.outputFolder'] ??
+			deviceConfig.get('recording.cpal.outputFolder') ??
 			(await PATHS.DB.RECORDINGS());
 		const ext = AUDIO_FORMATS[selected.format].extension;
 		const outputPath = await join(
@@ -233,8 +234,8 @@
 <div class="grid lg:grid-cols-[1fr,1fr] gap-4">
 	<!-- Left Panel: Settings -->
 	<div class="space-y-4">
-		<div class="flex items-center justify-between">
-			<h4 class="text-sm font-semibold">FFmpeg Settings</h4>
+		<SectionHeader.Root class="flex items-center justify-between">
+			<SectionHeader.Title level={4}>FFmpeg Settings</SectionHeader.Title>
 			<button
 				onclick={() => {
 					globalOptions = FFMPEG_DEFAULT_GLOBAL_OPTIONS;
@@ -245,17 +246,17 @@
 			>
 				Reset all
 			</button>
-		</div>
+		</SectionHeader.Root>
 
 		<!-- Output Options (Primary) -->
-		<div class="rounded-lg border p-4 space-y-3">
+		<Field.Set class="rounded-lg border p-4 gap-3">
 			<div class="flex items-center justify-between">
-				<h5 class="text-sm font-medium flex items-baseline gap-2">
+				<Field.Legend variant="label" class="mb-0 flex items-baseline gap-2">
 					<span class="text-primary">Output</span>
 					<span class="text-xs text-muted-foreground font-normal"
 						>Primary settings</span
 					>
-				</h5>
+				</Field.Legend>
 				{#if selected.format !== DEFAULT.format || selected.sampleRate !== DEFAULT.sampleRate || selected.bitrate !== DEFAULT.bitrate || selected.quality !== DEFAULT.quality || outputOptions !== FFMPEG_DEFAULT_OUTPUT_OPTIONS}
 					<Button
 						tooltip="Reset output settings"
@@ -271,127 +272,121 @@
 				{/if}
 			</div>
 
-			<p class="text-xs text-muted-foreground">
+			<Field.Description class="text-xs">
 				Choose based on your needs: file size, compatibility, or quality. Note:
 				Some formats may not play in the browser preview but will work for
 				transcription.
-			</p>
+			</Field.Description>
 
-			<!-- Flexible layout that adapts to number of controls -->
-			<div class="flex flex-col sm:flex-row gap-3">
-				<div class="flex-1">
-					<Field.Field>
-						<Field.Label for="ffmpeg-format">Format</Field.Label>
-						<Select.Root
-							type="single"
-							bind:value={
-								() => selected.format,
+			<Field.Group>
+				<!-- Flexible layout that adapts to number of controls -->
+				<div class="flex flex-col sm:flex-row gap-3">
+					<div class="flex-1">
+						<Field.Field>
+							<Field.Label for="ffmpeg-format">Format</Field.Label>
+							<Select.Root
+								type="single"
+								bind:value={() => selected.format,
 								(value) => {
 									if (value) {
 										selected = { ...selected, format: value };
 										rebuildOutputOptionsFromSelections();
 									}
-								}
-							}
-						>
-							<Select.Trigger id="ffmpeg-format" class="w-full">
-								{formatLabel ?? 'Select format'}
-							</Select.Trigger>
-							<Select.Content>
-								{#each audioFormatOptions as item}
-									<Select.Item value={item.value} label={item.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</Field.Field>
-				</div>
+								}}
+							>
+								<Select.Trigger id="ffmpeg-format" class="w-full">
+									{formatLabel ?? 'Select format'}
+								</Select.Trigger>
+								<Select.Content>
+									{#each audioFormatOptions as item}
+										<Select.Item value={item.value} label={item.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Field>
+					</div>
 
-				<div class="flex-1">
-					<Field.Field>
-						<Field.Label for="ffmpeg-sample-rate">Sample Rate</Field.Label>
-						<Select.Root
-							type="single"
-							bind:value={
-								() => selected.sampleRate,
+					<div class="flex-1">
+						<Field.Field>
+							<Field.Label for="ffmpeg-sample-rate">Sample Rate</Field.Label>
+							<Select.Root
+								type="single"
+								bind:value={() => selected.sampleRate,
 								(value) => {
 									if (value) {
 										selected = { ...selected, sampleRate: value };
 										rebuildOutputOptionsFromSelections();
 									}
-								}
-							}
-						>
-							<Select.Trigger id="ffmpeg-sample-rate" class="w-full">
-								{sampleRateLabel ?? 'Sample rate'}
-							</Select.Trigger>
-							<Select.Content>
-								{#each SAMPLE_RATE_OPTIONS as item}
-									<Select.Item value={item.value} label={item.label} />
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</Field.Field>
-				</div>
+								}}
+							>
+								<Select.Trigger id="ffmpeg-sample-rate" class="w-full">
+									{sampleRateLabel ?? 'Sample rate'}
+								</Select.Trigger>
+								<Select.Content>
+									{#each SAMPLE_RATE_OPTIONS as item}
+										<Select.Item value={item.value} label={item.label} />
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</Field.Field>
+					</div>
 
-				{#if selected.format === 'ogg'}
-					<!-- Quality scale for OGG Vorbis -->
-					<div class="flex-1">
-						<Field.Field>
-							<Field.Label for="ffmpeg-quality">Quality</Field.Label>
-							<Select.Root
-								type="single"
-								bind:value={
-									() => selected.quality,
+					{#if selected.format === 'ogg'}
+						<!-- Quality scale for OGG Vorbis -->
+						<div class="flex-1">
+							<Field.Field>
+								<Field.Label for="ffmpeg-quality">Quality</Field.Label>
+								<Select.Root
+									type="single"
+									bind:value={() => selected.quality,
 									(value) => {
 										if (value) {
 											selected = { ...selected, quality: value };
 											rebuildOutputOptionsFromSelections();
 										}
-									}
-								}
-							>
-								<Select.Trigger id="ffmpeg-quality" class="w-full">
-									{qualityLabel ?? 'Quality'}
-								</Select.Trigger>
-								<Select.Content>
-									{#each qualityItems as item}
-										<Select.Item value={item.value} label={item.label} />
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</Field.Field>
-					</div>
-				{:else if selected.format !== 'wav'}
-					<!-- Bitrate for MP3, Opus, AAC -->
-					<div class="flex-1">
-						<Field.Field>
-							<Field.Label for="ffmpeg-bitrate">Bitrate</Field.Label>
-							<Select.Root
-								type="single"
-								bind:value={
-									() => selected.bitrate,
+									}}
+								>
+									<Select.Trigger id="ffmpeg-quality" class="w-full">
+										{qualityLabel ?? 'Quality'}
+									</Select.Trigger>
+									<Select.Content>
+										{#each qualityItems as item}
+											<Select.Item value={item.value} label={item.label} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</Field.Field>
+						</div>
+					{:else if selected.format !== 'wav'}
+						<!-- Bitrate for MP3, Opus, AAC -->
+						<div class="flex-1">
+							<Field.Field>
+								<Field.Label for="ffmpeg-bitrate">Bitrate</Field.Label>
+								<Select.Root
+									type="single"
+									bind:value={() => selected.bitrate,
 									(value) => {
 										if (value) {
 											selected = { ...selected, bitrate: value };
 											rebuildOutputOptionsFromSelections();
 										}
-									}
-								}
-							>
-								<Select.Trigger id="ffmpeg-bitrate" class="w-full">
-									{bitrateLabel ?? 'Bitrate'}
-								</Select.Trigger>
-								<Select.Content>
-									{#each bitrateItems as item}
-										<Select.Item value={item.value} label={item.label} />
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</Field.Field>
-					</div>
-				{/if}
-			</div>
-		</div>
+									}}
+								>
+									<Select.Trigger id="ffmpeg-bitrate" class="w-full">
+										{bitrateLabel ?? 'Bitrate'}
+									</Select.Trigger>
+									<Select.Content>
+										{#each bitrateItems as item}
+											<Select.Item value={item.value} label={item.label} />
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</Field.Field>
+						</div>
+					{/if}
+				</div>
+			</Field.Group>
+		</Field.Set>
 
 		<!-- Advanced Options (Collapsible) -->
 		<details class="group">
@@ -402,7 +397,7 @@
 				<span class="text-xs text-muted-foreground">Raw FFmpeg parameters</span>
 			</summary>
 
-			<div class="mt-3 space-y-3 rounded-lg border p-4">
+			<Field.Group class="mt-3 gap-3 rounded-lg border p-4">
 				<!-- Global Options -->
 				<Field.Field>
 					<Field.Label for="ffmpeg-global">Global Options</Field.Label>
@@ -460,9 +455,11 @@
 							</p>
 							<div>
 								Common: <code class="px-1 rounded bg-muted">-ac 1</code> (mono),
-								<code class="px-1 rounded bg-muted">-t 60</code> (60s limit)
+								<code class="px-1 rounded bg-muted">-t 60</code>
+								(60s limit)
 								{#if PLATFORM_TYPE === 'windows'}
-									, <code class="px-1 rounded bg-muted"
+									,
+									<code class="px-1 rounded bg-muted"
 										>-audio_buffer_size 20</code
 									>
 									(low latency)
@@ -501,19 +498,21 @@
 						parameters.
 					</Field.Description>
 				</Field.Field>
-			</div>
+			</Field.Group>
 		</details>
 	</div>
 
 	<!-- Right Panel: Live Preview -->
 	<div class="flex flex-col h-full">
 		<div class="rounded-lg border bg-muted/30 flex-1 flex flex-col">
-			<div class="p-4 border-b bg-background/50">
-				<h5 class="text-sm font-medium">Command Preview</h5>
-				<p class="text-xs text-muted-foreground mt-0.5">
+			<SectionHeader.Root class="p-4 border-b bg-background/50">
+				<SectionHeader.Title level={5} class="font-medium"
+					>Command Preview</SectionHeader.Title
+				>
+				<SectionHeader.Description class="text-xs">
 					Live updates as you modify settings
-				</p>
-			</div>
+				</SectionHeader.Description>
+			</SectionHeader.Root>
 
 			<div class="flex-1 p-4 overflow-auto">
 				<div
@@ -535,7 +534,8 @@
 					<div class="flex items-start gap-2">
 						<span class="text-muted-foreground shrink-0">Output:</span>
 						<code class="text-primary">
-							{AUDIO_FORMATS[selected.format].extension} • {selected.sampleRate}Hz{selected.format ===
+							{AUDIO_FORMATS[selected.format].extension}
+							• {selected.sampleRate}Hz{selected.format ===
 							'ogg'
 								? ` • Q${selected.quality}`
 								: selected.format !== 'wav'

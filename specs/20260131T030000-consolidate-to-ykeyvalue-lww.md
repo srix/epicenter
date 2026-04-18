@@ -108,7 +108,7 @@ The new implementation MUST preserve these APIs:
 | `upsertMany(rows)`     | Void, never fails            | Yes           |
 | `update(partial)`      | Returns `UpdateResult`       | Yes           |
 | `updateMany(partials)` | Returns `UpdateManyResult`   | Yes           |
-| `delete(id)`           | Returns `DeleteResult`       | Yes           |
+| `delete(id)`           | Void, fire-and-forget        | Yes           |
 | `deleteMany(ids)`      | Returns `DeleteManyResult`   | Yes           |
 | `clear()`              | Void                         | Yes           |
 | `count()`              | Returns number               | Yes           |
@@ -257,7 +257,7 @@ All planned APIs preserved:
 - ✅ `upsertMany(rows)` - Void, never fails
 - ✅ `update(partial)` - Returns `UpdateResult`
 - ✅ `updateMany(partials)` - Returns `UpdateManyResult`
-- ✅ `delete(id)` - Returns `DeleteResult`
+- ✅ `delete(id)` - Void, fire-and-forget
 - ✅ `deleteMany(ids)` - Returns `DeleteManyResult`
 - ✅ `clear()` - Void
 - ✅ `count()` - Returns number
@@ -283,9 +283,9 @@ TablesFunction APIs:
 
 ### Migration Notes
 
-Apps using `createWorkspace` from `@epicenter/hq/dynamic` will break. They should:
+Apps using `createWorkspace` from `@epicenter/workspace/dynamic` will break. They should:
 
 1. Use `createTables` directly for table operations
-2. Or use `@epicenter/hq/static` for the full workspace API with versioning support
+2. Or use `@epicenter/workspace/static` for the full workspace API with versioning support
 
 No data migration utility was created (Phase 4 was optional). Existing Y.Doc data using nested Y.Map will need to be recreated.

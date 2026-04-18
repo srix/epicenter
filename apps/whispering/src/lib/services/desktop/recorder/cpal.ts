@@ -1,6 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { remove } from '@tauri-apps/plugin-fs';
-import { extractErrorMessage } from 'wellcrafted/error';
 import { Err, Ok, type Result, tryAsync } from 'wellcrafted/result';
 import type {
 	CancelRecordingResult,
@@ -9,10 +8,9 @@ import type {
 import { FsServiceLive } from '$lib/services/desktop/fs';
 import {
 	type CpalRecordingParams,
+	RecorderError,
 	type RecorderService,
-	RecorderServiceErr,
-	type RecorderServiceError,
-} from '$lib/services/isomorphic/recorder/types';
+} from '$lib/services/recorder/types';
 import {
 	asDeviceIdentifier,
 	type Device,
@@ -32,14 +30,12 @@ type AudioRecording = {
 /**
  * Enumerates available recording devices from the system.
  */
-const enumerateDevices = async (): Promise<
-	Result<Device[], RecorderServiceError>
-> => {
+const enumerateDevices = async (): Promise<Result<Device[], RecorderError>> => {
 	const { data: deviceNames, error: enumerateRecordingDevicesError } =
 		await invoke<string[]>('enumerate_recording_devices');
 	if (enumerateRecordingDevicesError) {
-		return RecorderServiceErr({
-			message: 'Failed to enumerate recording devices',
+		return RecorderError.EnumerateDevices({
+			cause: enumerateRecordingDevicesError,
 		});
 	}
 	// On desktop, device names serve as both ID and label
@@ -61,15 +57,14 @@ export const CpalRecorderServiceLive: RecorderService = {
 	 * Gets the current state of the recorder.
 	 */
 	getRecorderState: async (): Promise<
-		Result<WhisperingRecordingState, RecorderServiceError>
+		Result<WhisperingRecordingState, RecorderError>
 	> => {
 		const { data: recordingId, error: getRecorderStateError } = await invoke<
 			string | null
 		>('get_current_recording_id');
 		if (getRecorderStateError)
-			return RecorderServiceErr({
-				message:
-					'We encountered an issue while getting the recorder state. This could be because your microphone is being used by another app, your microphone permissions are denied, or the selected recording device is disconnected',
+			return RecorderError.GetStateFailed({
+				cause: getRecorderStateError,
 			});
 
 		return Ok(recordingId ? 'RECORDING' : 'IDLE');
@@ -92,7 +87,7 @@ export const CpalRecorderServiceLive: RecorderService = {
 			sampleRate,
 		}: CpalRecordingParams,
 		{ sendStatus },
-	): Promise<Result<DeviceAcquisitionOutcome, RecorderServiceError>> => {
+	): Promise<Result<DeviceAcquisitionOutcome, RecorderError>> => {
 		const { data: devices, error: enumerateError } = await enumerateDevices();
 		if (enumerateError) return Err(enumerateError);
 
@@ -101,12 +96,12 @@ export const CpalRecorderServiceLive: RecorderService = {
 		 */
 		const acquireDevice = (): Result<
 			DeviceAcquisitionOutcome,
-			RecorderServiceError
+			RecorderError
 		> => {
 			const deviceIds = devices.map((d) => d.id);
 			const fallbackDeviceId = deviceIds.at(0);
 			if (!fallbackDeviceId) {
-				return RecorderServiceErr({
+				return RecorderError.NoDevice({
 					message: selectedDeviceId
 						? "We couldn't find the selected microphone. Make sure it's connected and try again!"
 						: "We couldn't find any microphones. Make sure they're connected and try again!",
@@ -173,9 +168,8 @@ export const CpalRecorderServiceLive: RecorderService = {
 			},
 		);
 		if (initRecordingSessionError)
-			return RecorderServiceErr({
-				message:
-					'We encountered an issue while setting up your recording session. This could be because your microphone is being used by another app, your microphone permissions are denied, or the selected recording device is disconnected',
+			return RecorderError.InitFailed({
+				cause: initRecordingSessionError,
 			});
 
 		sendStatus({
@@ -186,10 +180,7 @@ export const CpalRecorderServiceLive: RecorderService = {
 		const { error: startRecordingError } =
 			await invoke<void>('start_recording');
 		if (startRecordingError)
-			return RecorderServiceErr({
-				message:
-					'Unable to start recording. Please check your microphone and try again.',
-			});
+			return RecorderError.StartFailed({ cause: startRecordingError });
 
 		return Ok(deviceOutcome);
 	},
@@ -202,21 +193,17 @@ export const CpalRecorderServiceLive: RecorderService = {
 	 */
 	stopRecording: async ({
 		sendStatus,
-	}): Promise<Result<Blob, RecorderServiceError>> => {
+	}): Promise<Result<Blob, RecorderError>> => {
 		const { data: audioRecording, error: stopRecordingError } =
 			await invoke<AudioRecording>('stop_recording');
 		if (stopRecordingError) {
-			return RecorderServiceErr({
-				message: 'Unable to save your recording. Please try again.',
-			});
+			return RecorderError.StopFailed({ cause: stopRecordingError });
 		}
 
 		const { filePath } = audioRecording;
 		// Desktop recorder should always write to a file
 		if (!filePath) {
-			return RecorderServiceErr({
-				message: 'Recording file path not provided by method.',
-			});
+			return RecorderError.NoFilePath();
 		}
 		// audioRecording is now AudioRecordingWithFile
 
@@ -229,8 +216,8 @@ export const CpalRecorderServiceLive: RecorderService = {
 		const { data: blob, error: readRecordingFileError } =
 			await FsServiceLive.pathToBlob(filePath);
 		if (readRecordingFileError)
-			return RecorderServiceErr({
-				message: `Unable to read recording file: ${readRecordingFileError.message}`,
+			return RecorderError.ReadFileFailed({
+				cause: readRecordingFileError,
 			});
 		// Close the recording session after stopping
 		sendStatus({
@@ -254,15 +241,14 @@ export const CpalRecorderServiceLive: RecorderService = {
 	 */
 	cancelRecording: async ({
 		sendStatus,
-	}): Promise<Result<CancelRecordingResult, RecorderServiceError>> => {
+	}): Promise<Result<CancelRecordingResult, RecorderError>> => {
 		// Check current state first
 		const { data: recordingId, error: getRecordingIdError } = await invoke<
 			string | null
 		>('get_current_recording_id');
 		if (getRecordingIdError) {
-			return RecorderServiceErr({
-				message:
-					'Unable to check recording state. Please try closing the app and starting again.',
+			return RecorderError.GetStateFailed({
+				cause: getRecordingIdError,
 			});
 		}
 
@@ -285,10 +271,7 @@ export const CpalRecorderServiceLive: RecorderService = {
 			const { filePath } = audioRecording;
 			const { error: removeError } = await tryAsync({
 				try: () => remove(filePath),
-				catch: (error) =>
-					RecorderServiceErr({
-						message: `Failed to delete recording file: ${extractErrorMessage(error)}`,
-					}),
+				catch: (error) => RecorderError.FileDeleteFailed({ cause: error }),
 			});
 			if (removeError)
 				sendStatus({
@@ -323,7 +306,6 @@ export const CpalRecorderServiceLive: RecorderService = {
 async function invoke<T>(command: string, args?: Record<string, unknown>) {
 	return tryAsync({
 		try: async () => await tauriInvoke<T>(command, args),
-		catch: (error) =>
-			Err({ name: 'TauriInvokeError', command, error } as const),
+		catch: (error) => RecorderError.InvokeFailed({ command, cause: error }),
 	});
 }

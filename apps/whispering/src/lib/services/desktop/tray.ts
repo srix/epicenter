@@ -3,7 +3,11 @@ import { resolveResource } from '@tauri-apps/api/path';
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { exit } from '@tauri-apps/plugin-process';
-import { createTaggedError, extractErrorMessage } from 'wellcrafted/error';
+import {
+	defineErrors,
+	extractErrorMessage,
+	type InferErrors,
+} from 'wellcrafted/error';
 // import { commandCallbacks } from '$lib/commands';
 import { tryAsync } from 'wellcrafted/result';
 import { goto } from '$app/navigation';
@@ -12,21 +16,31 @@ import type { WhisperingRecordingState } from '$lib/constants/audio';
 
 const TRAY_ID = 'whispering-tray';
 
-const { SetTrayIconServiceErr } = createTaggedError('SetTrayIconServiceError');
+const TrayError = defineErrors({
+	SetIcon: ({ cause }: { cause: unknown }) => ({
+		message: `Failed to set tray icon: ${extractErrorMessage(cause)}`,
+		cause,
+	}),
+});
+export type TrayError = InferErrors<typeof TrayError>;
 
-const trayPromise = initTray();
+let trayPromise: ReturnType<typeof initTray> | null = null;
+function getTray() {
+	if (!trayPromise) trayPromise = initTray();
+	return trayPromise;
+}
 
 export const TrayIconServiceLive = {
 	setTrayIcon: (recorderState: WhisperingRecordingState) =>
 		tryAsync({
 			try: async () => {
 				const iconPath = await getIconPath(recorderState);
-				const tray = await trayPromise;
+				const tray = await getTray();
 				return tray.setIcon(iconPath);
 			},
 			catch: (error) =>
-				SetTrayIconServiceErr({
-					message: `Failed to set tray icon: ${extractErrorMessage(error)}`,
+				TrayError.SetIcon({
+					cause: error,
 				}),
 		}),
 };

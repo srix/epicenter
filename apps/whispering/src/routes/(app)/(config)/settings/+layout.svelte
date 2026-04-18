@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
 	import { Button } from '@epicenter/ui/button';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
 	import { Link } from '@epicenter/ui/link';
+	import * as SectionHeader from '@epicenter/ui/section-header';
 	import { Separator } from '@epicenter/ui/separator';
-	import { rpc } from '$lib/query';
 	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import SidebarNav from './SidebarNav.svelte';
+	import { rpc } from '$lib/query';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
 	import { settings } from '$lib/state/settings.svelte';
+	import SidebarNav from './SidebarNav.svelte';
 
 	let { children } = $props();
 
@@ -41,9 +43,11 @@
 	<div
 		class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
 	>
-		<div class="space-y-0.5">
-			<h2 class="text-2xl font-bold tracking-tight">Settings</h2>
-			<p class="text-muted-foreground">
+		<SectionHeader.Root class="space-y-0.5">
+			<SectionHeader.Title level={2} class="text-2xl font-bold tracking-tight"
+				>Settings</SectionHeader.Title
+			>
+			<SectionHeader.Description>
 				{#await versionPromise}
 					Customize your Whispering experience.
 				{:then v}
@@ -56,7 +60,8 @@
 							rel="noopener noreferrer"
 						>
 							{latestVersion}
-						</Link>).
+						</Link>
+						).
 					{:else}
 						{@const { version } = v}
 						Customize your experience for Whispering {version}.
@@ -64,8 +69,8 @@
 				{:catch error}
 					Customize your Whispering experience.
 				{/await}
-			</p>
-		</div>
+			</SectionHeader.Description>
+		</SectionHeader.Root>
 		<Button
 			variant="outline"
 			size="sm"
@@ -77,6 +82,7 @@
 					confirm: { text: 'Reset Settings', variant: 'destructive' },
 					onConfirm: () => {
 						settings.reset();
+						deviceConfig.reset();
 						rpc.notify.success({
 							title: 'Settings reset',
 							description: 'All settings have been reset to defaults.',
@@ -92,11 +98,7 @@
 	</div>
 	<Separator class="my-6" />
 	<div class="flex flex-col space-y-8 lg:flex-row lg:gap-8">
-		<aside class="lg:w-1/6">
-			<SidebarNav />
-		</aside>
-		<main class="flex-1 p-1.5 lg:max-w-3xl">
-			{@render children()}
-		</main>
+		<aside class="lg:w-1/6"><SidebarNav /></aside>
+		<main class="flex-1 p-1.5 lg:max-w-3xl">{@render children()}</main>
 	</div>
 </main>

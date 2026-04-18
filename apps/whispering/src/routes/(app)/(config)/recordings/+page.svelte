@@ -1,30 +1,35 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import { TrashIcon } from '$lib/components/icons';
-	import CopyIcon from '@lucide/svelte/icons/copy';
-	import { createCopyFn } from '$lib/utils/createCopyFn';
-	import { CopyButton } from '@epicenter/ui/copy-button';
+	import { createPersistedState } from '@epicenter/svelte';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button, buttonVariants } from '@epicenter/ui/button';
 	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Card } from '@epicenter/ui/card';
 	import { Checkbox } from '@epicenter/ui/checkbox';
-	import * as Modal from '@epicenter/ui/modal';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
+	import { CopyButton } from '@epicenter/ui/copy-button';
 	import * as DropdownMenu from '@epicenter/ui/dropdown-menu';
+	import * as Empty from '@epicenter/ui/empty';
 	import { Input } from '@epicenter/ui/input';
 	import { Label } from '@epicenter/ui/label';
-	import { Skeleton } from '@epicenter/ui/skeleton';
-	import { SelectAllPopover, SortableTableHeader } from '@epicenter/ui/table';
+	import * as Modal from '@epicenter/ui/modal';
+	import * as SectionHeader from '@epicenter/ui/section-header';
 	import * as Table from '@epicenter/ui/table';
+	import { SelectAllPopover, SortableTableHeader } from '@epicenter/ui/table';
 	import { Textarea } from '@epicenter/ui/textarea';
-	import { rpc } from '$lib/query';
-	import type { Recording } from '$lib/services/isomorphic/db';
 	import { cn } from '@epicenter/ui/utils';
-	import { createPersistedState } from '@epicenter/svelte-utils';
-	import { createMutation, createQuery } from '@tanstack/svelte-query';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
+	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
+	import MicIcon from '@lucide/svelte/icons/mic';
+	import StartTranscriptionIcon from '@lucide/svelte/icons/play';
+	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { createMutation } from '@tanstack/svelte-query';
 	import {
-		FlexRender,
 		createTable as createSvelteTable,
+		FlexRender,
 		renderComponent,
 	} from '@tanstack/svelte-table';
 	import type {
@@ -38,24 +43,21 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
-	import * as Empty from '@epicenter/ui/empty';
-	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
-	import MicIcon from '@lucide/svelte/icons/mic';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import EllipsisIcon from '@lucide/svelte/icons/ellipsis';
-	import LoadingTranscriptionIcon from '@lucide/svelte/icons/ellipsis';
-	import RetryTranscriptionIcon from '@lucide/svelte/icons/repeat';
-	import StartTranscriptionIcon from '@lucide/svelte/icons/play';
+	import { type } from 'arktype';
+	import { format } from 'date-fns';
 	import { nanoid } from 'nanoid/non-secure';
 	import { createRawSnippet } from 'svelte';
-	import { type } from 'arktype';
-	import LatestTransformationRunOutputByRecordingId from './LatestTransformationRunOutputByRecordingId.svelte';
-	import RenderAudioUrl from './RenderAudioUrl.svelte';
 	import TranscriptDialog from '$lib/components/copyable/TranscriptDialog.svelte';
-	import { RecordingRowActions } from './row-actions';
-	import { format } from 'date-fns';
 	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
 	import { PATHS } from '$lib/constants/paths';
+	import { rpc } from '$lib/query';
+	import { services } from '$lib/services';
+	import { type Recording, recordings } from '$lib/state/recordings.svelte';
+	import { createCopyFn } from '$lib/utils/createCopyFn';
+	import { recordingActions } from '$lib/utils/recording-actions';
+	import LatestTransformationRunOutputByRecordingId from './LatestTransformationRunOutputByRecordingId.svelte';
+	import RenderAudioUrl from './RenderAudioUrl.svelte';
+	import { RecordingRowActions } from './row-actions';
 
 	/**
 	 * Returns a cell renderer for a date/time column using date-fns format.
@@ -76,9 +78,6 @@
 		};
 	}
 
-	const getAllRecordingsQuery = createQuery(
-		() => rpc.db.recordings.getAll.options,
-	);
 	const transcribeRecordings = createMutation(
 		() => rpc.transcription.transcribeRecordings.options,
 	);
@@ -99,18 +98,16 @@
 			enableHiding: false,
 			filterFn: (row, _columnId, filterValue) => {
 				const title = String(row.getValue('title'));
-				const subtitle = String(row.getValue('subtitle'));
-				const transcribedText = String(row.getValue('transcribedText'));
+				const transcript = String(row.getValue('transcript'));
 				return (
 					title.toLowerCase().includes(filterValue.toLowerCase()) ||
-					subtitle.toLowerCase().includes(filterValue.toLowerCase()) ||
-					transcribedText.toLowerCase().includes(filterValue.toLowerCase())
+					transcript.toLowerCase().includes(filterValue.toLowerCase())
 				);
 			},
 		},
 		{
-			id: 'ID',
 			accessorKey: 'id',
+			meta: { label: 'ID' },
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, { column, headerText: 'ID' }),
 			cell: ({ getValue }) => {
@@ -124,8 +121,8 @@
 			},
 		},
 		{
-			id: 'Title',
 			accessorKey: 'title',
+			meta: { label: 'Title' },
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
@@ -133,37 +130,18 @@
 				}),
 		},
 		{
-			id: 'Subtitle',
-			accessorKey: 'subtitle',
+			accessorKey: 'recordedAt',
+			meta: { label: 'Recorded' },
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
-					headerText: 'Subtitle',
-				}),
-		},
-		{
-			id: 'Timestamp',
-			accessorKey: 'timestamp',
-			header: ({ column }) =>
-				renderComponent(SortableTableHeader, {
-					column,
-					headerText: 'Timestamp',
+					headerText: 'Recorded',
 				}),
 			cell: formattedCell(DATE_FORMAT),
 		},
 		{
-			id: 'Created At',
-			accessorKey: 'createdAt',
-			header: ({ column }) =>
-				renderComponent(SortableTableHeader, {
-					column,
-					headerText: 'Created At',
-				}),
-			cell: formattedCell(DATE_FORMAT),
-		},
-		{
-			id: 'Updated At',
 			accessorKey: 'updatedAt',
+			meta: { label: 'Updated At' },
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
@@ -172,24 +150,40 @@
 			cell: formattedCell(DATE_FORMAT),
 		},
 		{
-			id: 'Transcript',
-			accessorKey: 'transcribedText',
+			accessorKey: 'transcript',
+			meta: { label: 'Transcript' },
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
 					column,
 					headerText: 'Transcript',
 				}),
 			cell: ({ getValue, row }) => {
-				const transcribedText = getValue<string>();
-				if (!transcribedText) return;
+				const transcript = getValue<string>();
+				if (!transcript) return;
 				return renderComponent(TranscriptDialog, {
 					recordingId: row.id,
-					transcribedText,
+					transcript: transcript,
+					onDelete: () => {
+						confirmationDialog.open({
+							title: 'Delete recording',
+							description: 'Are you sure you want to delete this recording?',
+							confirm: { text: 'Delete', variant: 'destructive' },
+							onConfirm: () => {
+								services.blobs.audio.revokeUrl(row.original.id);
+								recordings.delete(row.original.id);
+								rpc.notify.success({
+									title: 'Deleted recording!',
+									description: 'Your recording has been deleted.',
+								});
+							},
+						});
+					},
 				});
 			},
 		},
 		{
-			id: 'Latest Transformation Run Output',
+			id: 'latestTransformationRunOutput',
+			meta: { label: 'Latest Transformation Run Output' },
 			accessorFn: ({ id }) => id,
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
@@ -204,7 +198,8 @@
 			},
 		},
 		{
-			id: 'Audio',
+			id: 'audio',
+			meta: { label: 'Audio' },
 			accessorFn: ({ id }) => id,
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
@@ -217,7 +212,8 @@
 			},
 		},
 		{
-			id: 'Actions',
+			id: 'actions',
+			meta: { label: 'Actions' },
 			accessorFn: (recording) => recording,
 			header: ({ column }) =>
 				renderComponent(SortableTableHeader, {
@@ -235,25 +231,22 @@
 
 	let sorting = createPersistedState({
 		key: 'whispering-recordings-data-table-sorting',
-		onParseError: (error) => [{ id: 'timestamp', desc: true }],
 		schema: type({ desc: 'boolean', id: 'string' }).array(),
+		defaultValue: [{ id: 'recordedAt', desc: true }],
 	});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let columnVisibility = createPersistedState({
 		key: 'whispering-recordings-data-table-column-visibility',
-		onParseError: (error) => ({
-			ID: false,
-			Title: false,
-			Subtitle: false,
-			'Created At': false,
-			'Updated At': false,
-		}),
 		schema: type('Record<string, boolean>'),
+		defaultValue: {
+			id: false,
+			updatedAt: false,
+		},
 	});
 	let rowSelection = createPersistedState({
 		key: 'whispering-recordings-data-table-row-selection',
-		onParseError: (error) => ({}),
 		schema: type('Record<string, boolean>'),
+		defaultValue: {},
 	});
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
 	let globalFilter = $state('');
@@ -261,7 +254,7 @@
 	const table = createSvelteTable({
 		getRowId: (originalRow) => originalRow.id,
 		get data() {
-			return getAllRecordingsQuery.data ?? [];
+			return recordings.sorted;
 		},
 		columns,
 		getCoreRowModel: getCoreRowModel(),
@@ -270,9 +263,9 @@
 		getPaginationRowModel: getPaginationRowModel(),
 		onSortingChange: (updater) => {
 			if (typeof updater === 'function') {
-				sorting.value = updater(sorting.value);
+				sorting.current = updater(sorting.current);
 			} else {
-				sorting.value = updater;
+				sorting.current = updater;
 			}
 		},
 		onColumnFiltersChange: (updater) => {
@@ -284,16 +277,16 @@
 		},
 		onColumnVisibilityChange: (updater) => {
 			if (typeof updater === 'function') {
-				columnVisibility.value = updater(columnVisibility.value);
+				columnVisibility.current = updater(columnVisibility.current);
 			} else {
-				columnVisibility.value = updater;
+				columnVisibility.current = updater;
 			}
 		},
 		onRowSelectionChange: (updater) => {
 			if (typeof updater === 'function') {
-				rowSelection.value = updater(rowSelection.value);
+				rowSelection.current = updater(rowSelection.current);
 			} else {
-				rowSelection.value = updater;
+				rowSelection.current = updater;
 			}
 		},
 		onPaginationChange: (updater) => {
@@ -312,16 +305,16 @@
 		},
 		state: {
 			get sorting() {
-				return sorting.value;
+				return sorting.current;
 			},
 			get columnFilters() {
 				return columnFilters;
 			},
 			get columnVisibility() {
-				return columnVisibility.value;
+				return columnVisibility.current;
 			},
 			get rowSelection() {
-				return rowSelection.value;
+				return rowSelection.current;
 			},
 			get pagination() {
 				return pagination;
@@ -336,7 +329,7 @@
 		table.getFilteredSelectedRowModel().rows,
 	);
 
-	let template = $state('{{timestamp}} {{transcribedText}}');
+	let template = $state('{{recordedAt}} {{transcript}}');
 	let delimiter = $state('\n\n');
 
 	let isDialogOpen = $state(false);
@@ -344,7 +337,7 @@
 	const joinedTranscriptionsText = $derived.by(() => {
 		const transcriptions = selectedRecordingRows
 			.map(({ original }) => original)
-			.filter((recording) => recording.transcribedText !== '')
+			.filter((recording) => recording.transcript !== '')
 			.map((recording) =>
 				template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
 					if (key in recording) {
@@ -358,18 +351,21 @@
 	});
 </script>
 
-<svelte:head>
-	<title>All Recordings</title>
-</svelte:head>
+<svelte:head> <title>All Recordings</title> </svelte:head>
 
 <main class="flex w-full flex-1 flex-col gap-2 px-4 py-4 sm:px-8 mx-auto">
-	<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
-		Recordings
-	</h1>
-	<p class="text-muted-foreground">
-		Your latest recordings and transcriptions, stored locally
-		{window.__TAURI_INTERNALS__ ? 'on your file system' : 'in IndexedDB'}.
-	</p>
+	<SectionHeader.Root>
+		<SectionHeader.Title
+			level={1}
+			class="scroll-m-20 text-4xl tracking-tight lg:text-5xl"
+		>
+			Recordings
+		</SectionHeader.Title>
+		<SectionHeader.Description>
+			Your latest recordings and transcriptions, stored locally
+			{window.__TAURI_INTERNALS__ ? 'on your file system' : 'in IndexedDB'}.
+		</SectionHeader.Description>
+	</SectionHeader.Root>
 	<Card class="flex flex-col gap-4 p-6">
 		<div class="flex flex-col md:flex-row items-center justify-between gap-2">
 			<Input
@@ -435,12 +431,12 @@
 						{#if transcribeRecordings.isPending}
 							<EllipsisIcon class="size-4" />
 						{:else if selectedRecordingRows.some(({ id }) => {
-							const currentRow = getAllRecordingsQuery.data?.find((r) => r.id === id);
+							const currentRow = recordings.get(id);
 							return currentRow?.transcriptionStatus === 'TRANSCRIBING';
 						})}
 							<LoadingTranscriptionIcon class="size-4" />
 						{:else if selectedRecordingRows.some(({ id }) => {
-							const currentRow = getAllRecordingsQuery.data?.find((r) => r.id === id);
+							const currentRow = recordings.get(id);
 							return currentRow?.transcriptionStatus === 'DONE';
 						})}
 							<RetryTranscriptionIcon class="size-4" />
@@ -513,32 +509,10 @@
 						tooltip="Delete selected recordings"
 						variant="outline"
 						size="icon"
-						onclick={() => {
-							confirmationDialog.open({
-								title: 'Delete recordings',
-								description:
-									'Are you sure you want to delete these recordings?',
-								confirm: { text: 'Delete', variant: 'destructive' },
-								onConfirm: async () => {
-									const { error } = await rpc.db.recordings.delete(
-										selectedRecordingRows.map(({ original }) => original),
-									);
-									if (error) {
-										rpc.notify.error({
-											title: 'Failed to delete recordings!',
-											description: 'Your recordings could not be deleted.',
-											action: { type: 'more-details', error },
-										});
-										throw error;
-									}
-									rpc.notify.success({
-										title: 'Deleted recordings!',
-										description:
-											'Your recordings have been deleted successfully.',
-									});
-								},
-							});
-						}}
+						onclick={() =>
+						recordingActions.deleteWithConfirmation(
+							selectedRecordingRows.map(({ original }) => original),
+						)}
 					>
 						<TrashIcon class="size-4" />
 					</Button>
@@ -556,21 +530,18 @@
 							'ml-auto items-center transition-all [&[data-state=open]>svg]:rotate-180',
 						)}
 					>
-						Columns <ChevronDownIcon
-							class="size-4 transition-transform duration-200"
-						/>
+						Columns
+						<ChevronDownIcon class="size-4 transition-transform duration-200" />
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content>
 						{#each table
 							.getAllColumns()
 							.filter((c) => c.getCanHide()) as column (column.id)}
 							<DropdownMenu.CheckboxItem
-								bind:checked={
-									() => column.getIsVisible(),
-									(value) => column.toggleVisibility(!!value)
-								}
+								bind:checked={() => column.getIsVisible(),
+									(value) => column.toggleVisibility(!!value)}
 							>
-								{column.columnDef.id}
+								{(column.columnDef.meta as { label?: string })?.label ?? column.id}
 							</DropdownMenu.CheckboxItem>
 						{/each}
 					</DropdownMenu.Content>
@@ -597,18 +568,7 @@
 					{/each}
 				</Table.Header>
 				<Table.Body>
-					{#if getAllRecordingsQuery.isPending}
-						{#each { length: 5 }}
-							<Table.Row>
-								<Table.Cell>
-									<Skeleton class="size-4" />
-								</Table.Cell>
-								<Table.Cell colspan={columns.length - 1}>
-									<Skeleton class="h-4 w-full" />
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					{:else if table.getRowModel().rows?.length}
+					{#if table.getRowModel().rows?.length}
 						{#each table.getRowModel().rows as row (row.id)}
 							<Table.Row>
 								{#each row.getVisibleCells() as cell}
@@ -658,8 +618,11 @@
 
 		<div class="flex items-center justify-between">
 			<div class="text-muted-foreground text-sm">
-				{selectedRecordingRows.length} of {table.getFilteredRowModel().rows
-					.length} row(s) selected.
+				{selectedRecordingRows.length}
+				of
+				{table.getFilteredRowModel().rows
+					.length}
+				row(s) selected.
 			</div>
 			<ButtonGroup.Root>
 				<Button

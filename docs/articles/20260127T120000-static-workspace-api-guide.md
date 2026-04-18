@@ -29,18 +29,17 @@ import {
 import { type } from 'arktype';
 
 // Define table schemas with versioning
-const posts = defineTable()
-	.version(type({ id: 'string', title: 'string', _v: '1' }))
-	.version(type({ id: 'string', title: 'string', views: 'number', _v: '2' }))
+const posts = defineTable(
+	type({ id: 'string', title: 'string', _v: '1' }),
+	type({ id: 'string', title: 'string', views: 'number', _v: '2' }),
+)
 	.migrate((row) => {
 		if (row._v === 1) return { ...row, views: 0, _v: 2 };
 		return row;
 	});
 
-// Define KV stores (same pattern, single key-value pair)
-const theme = defineKv()
-	.version(type({ mode: "'light' | 'dark'" }))
-	.migrate((v) => v);
+// Define KV stores (simple schema + default)
+const theme = defineKv(type("'light' | 'dark'"), 'light');
 
 // Define the workspace (pure schema definitions, no side effects)
 const workspace = defineWorkspace({
@@ -262,24 +261,15 @@ posts.batch((tx) => {
 
 ## Key-Value Stores
 
-KV stores follow the same versioning pattern:
+KV stores use `defineKv(schema, defaultValue)`. No versioning, no migration—invalid data falls back to the default:
 
 ```typescript
-const theme = defineKv()
-	.version(type({ mode: "'light' | 'dark'" }))
-	.version(type({ mode: "'light' | 'dark' | 'system'", fontSize: 'number' }))
-	.migrate((v) => {
-		if (!('fontSize' in v)) return { ...v, fontSize: 14 };
-		return v;
-	});
+const mode = defineKv(type("'light' | 'dark' | 'system'"), 'light');
+const fontSize = defineKv(type('number'), 14);
 
 // Set and get
-client.kv.set('theme', { mode: 'dark', fontSize: 16 });
-const result = client.kv.get('theme');
-
-if (result.status === 'valid') {
-	console.log(result.value.mode); // 'light' | 'dark' | 'system'
-}
+client.kv.set('mode', 'dark');
+const current = client.kv.get('mode'); // 'dark' (valid) or 'light' (invalid/missing)
 
 // Batch operations
 client.kv.batch((tx) => {
@@ -428,15 +418,11 @@ import { createTables, createKv } from 'epicenter/static';
 const ydoc = provider.ydoc; // From WebsocketProvider or similar
 
 const tables = createTables(ydoc, {
-	posts: defineTable()
-		.version(type({ id: 'string', title: 'string' }))
-		.migrate((row) => row),
+	posts: defineTable(type({ id: 'string', title: 'string', _v: '1' })),
 });
 
 const kv = createKv(ydoc, {
-	theme: defineKv()
-		.version(type({ mode: "'light' | 'dark'" }))
-		.migrate((v) => v),
+	theme: defineKv(type({ mode: "'light' | 'dark'", _v: '1' })),
 });
 
 // Use normally
@@ -496,9 +482,7 @@ if (invalid.length > 0) {
 The API is fully typed with generics. Types are inferred from your definitions:
 
 ```typescript
-const posts = defineTable()
-	.version(type({ id: 'string', title: 'string', views: 'number' }))
-	.migrate((row) => row);
+const posts = defineTable(type({ id: 'string', title: 'string', views: 'number', _v: '1' }));
 
 const workspace = defineWorkspace({
 	id: 'my-app',
@@ -623,18 +607,8 @@ Tables are isolated. Each gets its own Y.Array:
 const workspace = defineWorkspace({
 	id: 'notes-app',
 	tables: {
-		notebooks: defineTable()
-			.version(type({ id: 'string', name: 'string' }))
-			.migrate((row) => row),
-		notes: defineTable()
-			.version(
-				type({
-					id: 'string',
-					notebookId: 'string',
-					content: 'string',
-				}),
-			)
-			.migrate((row) => row),
+		notebooks: defineTable(type({ id: 'string', name: 'string', _v: '1' })),
+		notes: defineTable(type({ id: 'string', notebookId: 'string', content: 'string', _v: '1' })),
 	},
 });
 

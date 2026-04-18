@@ -1,22 +1,21 @@
 <script lang="ts">
-	import { confirmationDialog } from '$lib/components/ConfirmationDialog.svelte';
-	import { TrashIcon } from '$lib/components/icons';
+	import { createPersistedState } from '@epicenter/svelte';
 	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
 	import * as ButtonGroup from '@epicenter/ui/button-group';
 	import { Checkbox } from '@epicenter/ui/checkbox';
+	import { confirmationDialog } from '@epicenter/ui/confirmation-dialog';
+	import * as Empty from '@epicenter/ui/empty';
 	import { Input } from '@epicenter/ui/input';
-	import { Skeleton } from '@epicenter/ui/skeleton';
-	import { SelectAllPopover, SortableTableHeader } from '@epicenter/ui/table';
+	import * as SectionHeader from '@epicenter/ui/section-header';
 	import * as Table from '@epicenter/ui/table';
-	import { rpc } from '$lib/query';
-	import { type Transformation } from '$lib/services/isomorphic/db';
-	import { createPersistedState } from '@epicenter/svelte-utils';
-	import { viewTransition } from '$lib/utils/viewTransitions';
-	import { createQuery } from '@tanstack/svelte-query';
+	import { SelectAllPopover, SortableTableHeader } from '@epicenter/ui/table';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
 	import {
-		FlexRender,
 		createTable as createSvelteTable,
+		FlexRender,
 		renderComponent,
 	} from '@tanstack/svelte-table';
 	import type {
@@ -30,20 +29,19 @@
 		getPaginationRowModel,
 		getSortedRowModel,
 	} from '@tanstack/table-core';
-	import * as Empty from '@epicenter/ui/empty';
-	import SearchIcon from '@lucide/svelte/icons/search';
-	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
-	import { createRawSnippet } from 'svelte';
 	import { type } from 'arktype';
+	import { createRawSnippet } from 'svelte';
+	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
+	import { PATHS } from '$lib/constants/paths';
+	import { rpc } from '$lib/query';
+	import {
+		type Transformation,
+		transformations,
+	} from '$lib/state/transformations.svelte';
+	import { viewTransition } from '$lib/utils/viewTransitions';
 	import CreateTransformationButton from './CreateTransformationButton.svelte';
 	import MarkTransformationActiveButton from './MarkTransformationActiveButton.svelte';
 	import TransformationRowActions from './TransformationRowActions.svelte';
-	import OpenFolderButton from '$lib/components/OpenFolderButton.svelte';
-	import { PATHS } from '$lib/constants/paths';
-
-	const transformationsQuery = createQuery(
-		() => rpc.db.transformations.getAll.options,
-	);
 
 	const columns: ColumnDef<Transformation>[] = [
 		{
@@ -74,7 +72,7 @@
 			cell: ({ getValue }) =>
 				renderComponent(Badge, {
 					variant: 'id',
-					children: createRawSnippet((name) => ({
+					children: createRawSnippet((_name) => ({
 						render: () => getValue<string>(),
 					})),
 				}),
@@ -111,13 +109,13 @@
 
 	let sorting = createPersistedState({
 		key: 'whispering-transformations-data-table-sorting',
-		onParseError: (error) => [{ id: 'title', desc: false }],
+		onParseError: (_error) => [{ id: 'title', desc: false }],
 		schema: type({ desc: 'boolean', id: 'string' }).array(),
 	});
 	let columnFilters = $state<ColumnFiltersState>([]);
 	let rowSelection = createPersistedState({
 		key: 'whispering-transformations-data-table-row-selection',
-		onParseError: (error) => ({}),
+		onParseError: (_error) => ({}),
 		schema: type('Record<string, boolean>'),
 	});
 	let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 10 });
@@ -126,7 +124,7 @@
 	const table = createSvelteTable({
 		getRowId: (originalRow) => originalRow.id,
 		get data() {
-			return transformationsQuery.data ?? [];
+			return transformations.sorted;
 		},
 		columns,
 		getCoreRowModel: getCoreRowModel(),
@@ -192,17 +190,20 @@
 	);
 </script>
 
-<svelte:head>
-	<title>All Transformations</title>
-</svelte:head>
+<svelte:head> <title>All Transformations</title> </svelte:head>
 
 <main class="flex w-full flex-1 flex-col gap-2 px-4 py-4 sm:px-8 mx-auto">
-	<h1 class="scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl">
-		Transformations
-	</h1>
-	<p class="text-muted-foreground">
-		Your text transformations, stored locally in IndexedDB.
-	</p>
+	<SectionHeader.Root>
+		<SectionHeader.Title
+			level={1}
+			class="scroll-m-20 text-4xl tracking-tight lg:text-5xl"
+		>
+			Transformations
+		</SectionHeader.Title>
+		<SectionHeader.Description>
+			Your text transformations, stored locally in IndexedDB.
+		</SectionHeader.Description>
+	</SectionHeader.Root>
 
 	<div class="flex items-center justify-between gap-2 w-full">
 		<Input
@@ -222,17 +223,9 @@
 						description:
 							'Are you sure you want to delete these transformations?',
 						confirm: { text: 'Delete', variant: 'destructive' },
-						onConfirm: async () => {
-							const { error } = await rpc.db.transformations.delete(
-								selectedTransformationRows.map(({ original }) => original),
-							);
-							if (error) {
-								rpc.notify.error({
-									title: 'Failed to delete transformations!',
-									description: 'Your transformations could not be deleted.',
-									action: { type: 'more-details', error },
-								});
-								throw error;
+						onConfirm: () => {
+							for (const { original } of selectedTransformationRows) {
+								transformations.delete(original.id);
 							}
 							rpc.notify.success({
 								title: 'Deleted transformations!',
@@ -274,18 +267,7 @@
 				{/each}
 			</Table.Header>
 			<Table.Body>
-				{#if transformationsQuery.isPending}
-					{#each { length: 5 }}
-						<Table.Row>
-							<Table.Cell>
-								<Skeleton class="size-4" />
-							</Table.Cell>
-							<Table.Cell colspan={columns.length - 1}>
-								<Skeleton class="h-4 w-full" />
-							</Table.Cell>
-						</Table.Row>
-					{/each}
-				{:else if table.getRowModel().rows?.length}
+				{#if table.getRowModel().rows?.length}
 					{#each table.getRowModel().rows as row (row.id)}
 						<Table.Row
 							style="view-transition-name: {viewTransition.transformation(
@@ -339,8 +321,11 @@
 
 	<div class="flex items-center justify-between">
 		<div class="text-muted-foreground text-sm">
-			{selectedTransformationRows.length} of {table.getFilteredRowModel().rows
-				.length} row(s) selected.
+			{selectedTransformationRows.length}
+			of
+			{table.getFilteredRowModel().rows
+				.length}
+			row(s) selected.
 		</div>
 		<ButtonGroup.Root>
 			<Button

@@ -3,13 +3,13 @@
 	import type { KeyboardEventSupportedKey } from '$lib/constants/keyboard';
 	import { rpc } from '$lib/query';
 	import {
-		type CommandId,
 		arrayToShortcutString,
-	} from '$lib/services/isomorphic/local-shortcut-manager';
+		type CommandId,
+	} from '$lib/services/local-shortcut-manager';
 	import { settings } from '$lib/state/settings.svelte';
 	import { type PressedKeys } from '$lib/utils/createPressedKeys.svelte';
-	import KeyboardShortcutRecorder from './KeyboardShortcutRecorder.svelte';
 	import { createKeyRecorder } from './create-key-recorder.svelte';
+	import KeyboardShortcutRecorder from './KeyboardShortcutRecorder.svelte';
 
 	const {
 		command,
@@ -23,9 +23,7 @@
 		pressedKeys: PressedKeys;
 	} = $props();
 
-	const shortcutValue = $derived(
-		settings.value[`shortcuts.local.${command.id}`],
-	);
+	const shortcutValue = $derived(settings.get(`shortcut.${command.id}`));
 
 	const keyRecorder = createKeyRecorder({
 		pressedKeys,
@@ -57,8 +55,8 @@
 				return;
 			}
 
-			settings.updateKey(
-				`shortcuts.local.${command.id}`,
+			settings.set(
+				`shortcut.${command.id}`,
 				arrayToShortcutString(keyCombination),
 			);
 
@@ -79,7 +77,7 @@
 					action: { type: 'more-details', error: unregisterError },
 				});
 			}
-			settings.updateKey(`shortcuts.local.${command.id}`, null);
+			settings.set(`shortcut.${command.id}`, null);
 
 			rpc.notify.success({
 				title: 'Local shortcut cleared',

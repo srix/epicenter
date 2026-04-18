@@ -8,13 +8,9 @@ AI coding assistants and many developers default to extracting every definition:
 
 ```typescript
 test('creates workspace with tables', () => {
-  const posts = defineTable()
-    .version(type({ id: 'string', title: 'string' }))
-    .migrate((row) => row);
+  const posts = defineTable(type({ id: 'string', title: 'string', _v: '1' }));
 
-  const theme = defineKv()
-    .version(type({ mode: "'light' | 'dark'" }))
-    .migrate((v) => v);
+  const theme = defineKv(type({ mode: "'light' | 'dark'" }), { mode: 'light' });
 
   const workspace = defineWorkspace({
     id: 'test-app',
@@ -43,14 +39,10 @@ test('creates workspace with tables', () => {
   const workspace = defineWorkspace({
     id: 'test-app',
     tables: {
-      posts: defineTable()
-        .version(type({ id: 'string', title: 'string' }))
-        .migrate((row) => row),
+      posts: defineTable(type({ id: 'string', title: 'string', _v: '1' })),
     },
     kv: {
-      theme: defineKv()
-        .version(type({ mode: "'light' | 'dark'" }))
-        .migrate((v) => v),
+      theme: defineKv(type({ mode: "'light' | 'dark'" }), { mode: 'light' }),
     },
   });
 
@@ -83,7 +75,7 @@ Self-contained test setup is easier to duplicate and tweak for variations. You c
 Extract to a variable when:
 
 - **Used multiple times**: If `posts` is referenced twice in the same test, extract it
-- **Need to call methods on the result**: Testing `posts.versions.length` or `posts.migrate()` requires a variable
+- **Need to call methods on the result**: Testing `posts.versions.length` or intermediate builder steps requires a variable
 - **Shared across tests**: In a `beforeEach` or shared test fixture
 - **Exceeds readability threshold**: If inline would be 15-20+ lines, consider extracting
 

@@ -402,7 +402,7 @@ See `docs/articles/ykeyvalue-gc-the-hidden-variable.md` for details.
 Pattern for reactive epoch state in Svelte:
 
 ```typescript
-import type { HeadDoc } from '@epicenter/hq';
+import type { HeadDoc } from '@epicenter/workspace';
 
 export function createReactiveHead(head: HeadDoc) {
 	let epoch = $state(head.getEpoch());
@@ -447,7 +447,7 @@ When implementing versioned workspaces, the API might look like:
 
 ```typescript
 // Option 1: Separate function
-import { createVersionedWorkspace } from '@epicenter/hq/dynamic';
+import { createVersionedWorkspace } from '@epicenter/workspace/dynamic';
 
 const head = createHeadDoc({ workspaceId, providers: {...} });
 const workspace = createVersionedWorkspace({ headDoc: head, definition });
@@ -482,7 +482,7 @@ await workspace.restoreSnapshot(snapshot);
 
 ## Code References
 
-- `packages/epicenter/src/dynamic/head-doc.ts` - HeadDoc implementation (may be archived)
+- `packages/workspace/src/dynamic/head-doc.ts` - HeadDoc implementation (may be archived)
 - `apps/epicenter/src/lib/docs/_archive/head.ts` - App-level wrapper (archived)
 - `apps/epicenter/src/lib/docs/_archive/head-persistence.ts` - Tauri persistence (archived)
 - `apps/epicenter/src/lib/docs/_archive/registry.ts` - Registry implementation (archived)

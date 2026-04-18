@@ -1,46 +1,51 @@
 <script lang="ts">
-	import DesktopOutputFolder from './DesktopOutputFolder.svelte';
-	import FfmpegCommandBuilder from './FfmpegCommandBuilder.svelte';
-	import * as Field from '@epicenter/ui/field';
-	import * as Select from '@epicenter/ui/select';
 	import * as Alert from '@epicenter/ui/alert';
+	import { Button } from '@epicenter/ui/button';
+	import * as Field from '@epicenter/ui/field';
 	import { Link } from '@epicenter/ui/link';
+	import * as Select from '@epicenter/ui/select';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import {
 		BITRATE_OPTIONS,
 		RECORDING_MODE_OPTIONS,
 		SAMPLE_RATE_OPTIONS,
 	} from '$lib/constants/audio';
-	import { settings } from '$lib/state/settings.svelte';
-	import ManualSelectRecordingDevice from './ManualSelectRecordingDevice.svelte';
-	import VadSelectRecordingDevice from './VadSelectRecordingDevice.svelte';
+	import { IS_LINUX, IS_MACOS, PLATFORM_TYPE } from '$lib/constants/platform';
+	import { TRANSCRIPTION_SERVICE_ID_TO_LABEL } from '$lib/constants/transcription';
 	import {
-		isCompressionRecommended,
+		asDeviceIdentifier,
+		type DeviceIdentifier,
+	} from '$lib/services/types';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
+	import { settings } from '$lib/state/settings.svelte';
+	import {
 		COMPRESSION_RECOMMENDED_MESSAGE,
 		hasNavigatorLocalTranscriptionIssue,
+		isCompressionRecommended,
 	} from '$routes/(app)/_layout-utils/check-ffmpeg';
-	import { TRANSCRIPTION_SERVICE_ID_TO_LABEL } from '$lib/services/isomorphic/transcription/registry';
-	import { IS_MACOS, IS_LINUX, PLATFORM_TYPE } from '$lib/constants/platform';
-	import { Button } from '@epicenter/ui/button';
+	import DesktopOutputFolder from './DesktopOutputFolder.svelte';
+	import FfmpegCommandBuilder from './FfmpegCommandBuilder.svelte';
+	import ManualSelectRecordingDevice from './ManualSelectRecordingDevice.svelte';
+	import VadSelectRecordingDevice from './VadSelectRecordingDevice.svelte';
 
 	const { data } = $props();
 
 	// Derived labels for select triggers
 	const recordingModeLabel = $derived(
 		RECORDING_MODE_OPTIONS.find(
-			(o) => o.value === settings.value['recording.mode'],
+			(o) => o.value === settings.get('recording.mode'),
 		)?.label,
 	);
 
 	const sampleRateLabel = $derived(
 		SAMPLE_RATE_OPTIONS.find(
-			(o) => o.value === settings.value['recording.cpal.sampleRate'],
+			(o) => o.value === deviceConfig.get('recording.cpal.sampleRate'),
 		)?.label,
 	);
 
 	const bitrateLabel = $derived(
 		BITRATE_OPTIONS.find(
-			(o) => o.value === settings.value['recording.navigator.bitrateKbps'],
+			(o) => o.value === deviceConfig.get('recording.navigator.bitrateKbps'),
 		)?.label,
 	);
 
@@ -78,23 +83,49 @@
 
 	const recordingMethodLabel = $derived(
 		RECORDING_METHOD_OPTIONS.find(
-			(o) => o.value === settings.value['recording.method'],
+			(o) => o.value === deviceConfig.get('recording.method'),
 		)?.label,
 	);
 
 	const isUsingNavigatorMethod = $derived(
 		!window.__TAURI_INTERNALS__ ||
-			settings.value['recording.method'] === 'navigator',
+			deviceConfig.get('recording.method') === 'navigator',
 	);
 
 	const isUsingFfmpegMethod = $derived(
-		settings.value['recording.method'] === 'ffmpeg',
+		deviceConfig.get('recording.method') === 'ffmpeg',
 	);
+
+	function getManualDeviceId(method: 'cpal' | 'navigator' | 'ffmpeg') {
+		switch (method) {
+			case 'cpal':
+				return deviceConfig.get('recording.cpal.deviceId');
+			case 'navigator':
+				return deviceConfig.get('recording.navigator.deviceId');
+			case 'ffmpeg':
+				return deviceConfig.get('recording.ffmpeg.deviceId');
+		}
+	}
+
+	function setManualDeviceId(
+		method: 'cpal' | 'navigator' | 'ffmpeg',
+		selected: DeviceIdentifier | null,
+	) {
+		switch (method) {
+			case 'cpal':
+				deviceConfig.set('recording.cpal.deviceId', selected);
+				break;
+			case 'navigator':
+				deviceConfig.set('recording.navigator.deviceId', selected);
+				break;
+			case 'ffmpeg':
+				deviceConfig.set('recording.ffmpeg.deviceId', selected);
+				break;
+		}
+	}
 </script>
 
-<svelte:head>
-	<title>Recording Settings - Whispering</title>
-</svelte:head>
+<svelte:head> <title>Recording Settings - Whispering</title> </svelte:head>
 
 <Field.Set>
 	<Field.Legend>Recording</Field.Legend>
@@ -107,12 +138,10 @@
 			<Field.Label for="recording-mode">Recording Mode</Field.Label>
 			<Select.Root
 				type="single"
-				bind:value={
-					() => settings.value['recording.mode'],
+				bind:value={() => settings.get('recording.mode'),
 					(selected) => {
-						if (selected) settings.updateKey('recording.mode', selected);
-					}
-				}
+						if (selected) settings.set('recording.mode', selected);
+					}}
 			>
 				<Select.Trigger id="recording-mode" class="w-full">
 					{recordingModeLabel ?? 'Select a recording mode'}
@@ -124,27 +153,26 @@
 				</Select.Content>
 			</Select.Root>
 			<Field.Description>
-				Choose how you want to activate recording: {RECORDING_MODE_OPTIONS.map(
+				Choose how you want to activate recording:
+				{RECORDING_MODE_OPTIONS.map(
 					(option) => option.label.toLowerCase(),
 				).join(', ')}
 			</Field.Description>
 		</Field.Field>
 
-		{#if window.__TAURI_INTERNALS__ && settings.value['recording.mode'] === 'manual'}
+		{#if window.__TAURI_INTERNALS__ && settings.get('recording.mode') === 'manual'}
 			<Field.Field>
 				<Field.Label for="recording-method">Recording Method</Field.Label>
 				<Select.Root
 					type="single"
-					bind:value={
-						() => settings.value['recording.method'],
+					bind:value={() => deviceConfig.get('recording.method'),
 						(selected) => {
 							if (selected)
-								settings.updateKey(
+							deviceConfig.set(
 									'recording.method',
 									selected as 'cpal' | 'navigator' | 'ffmpeg',
 								);
-						}
-					}
+						}}
 				>
 					<Select.Trigger id="recording-method" class="w-full">
 						{recordingMethodLabel ?? 'Select a recording method'}
@@ -166,12 +194,12 @@
 				</Select.Root>
 				<Field.Description>
 					{RECORDING_METHOD_OPTIONS.find(
-						(option) => option.value === settings.value['recording.method'],
+					(option) => option.value === deviceConfig.get('recording.method'),
 					)?.description}
 				</Field.Description>
 			</Field.Field>
 
-			{#if IS_MACOS && settings.value['recording.method'] === 'navigator'}
+			{#if IS_MACOS && deviceConfig.get('recording.method') === 'navigator'}
 				<Alert.Root class="border-warning/20 bg-warning/5">
 					<InfoIcon class="size-4 text-warning dark:text-warning" />
 					<Alert.Title class="text-warning dark:text-warning">
@@ -185,7 +213,7 @@
 				</Alert.Root>
 			{/if}
 
-			{#if settings.value['recording.method'] === 'ffmpeg' && !data.ffmpegInstalled}
+			{#if deviceConfig.get('recording.method') === 'ffmpeg' && !data.ffmpegInstalled}
 				<Alert.Root class="border-red-500/20 bg-red-500/5">
 					<InfoIcon class="size-4 text-red-600 dark:text-red-400" />
 					<Alert.Title class="text-red-600 dark:text-red-400">
@@ -228,14 +256,15 @@
 					</Alert.Title>
 					<Alert.Description>
 						The Browser API recording method produces compressed audio that
-						requires FFmpeg for local transcription with {TRANSCRIPTION_SERVICE_ID_TO_LABEL[
-							settings.value['transcription.selectedTranscriptionService']
+						requires FFmpeg for local transcription with
+						{TRANSCRIPTION_SERVICE_ID_TO_LABEL[
+							settings.get('transcription.service')
 						]}.
 						<div class="mt-3 space-y-3">
 							<div class="flex items-center gap-2">
 								<span class="text-sm"><strong>Option 1:</strong></span>
 								<Button
-									onclick={() => settings.updateKey('recording.method', 'cpal')}
+									onclick={() => deviceConfig.set('recording.method', 'cpal')}
 									variant="secondary"
 									size="sm"
 								>
@@ -249,8 +278,8 @@
 							</div>
 							<div class="text-sm">
 								<strong>Option 3:</strong>
-								Switch to a cloud transcription service (OpenAI, Groq, Deepgram, etc.)
-								which work with all recording methods
+								Switch to a cloud transcription service (OpenAI, Groq, Deepgram,
+								etc.) which work with all recording methods
 							</div>
 						</div>
 					</Alert.Description>
@@ -258,16 +287,16 @@
 			{/if}
 		{/if}
 
-		{#if settings.value['recording.mode'] === 'manual'}
-			{@const method = settings.value['recording.method']}
+		{#if settings.get('recording.mode') === 'manual'}
+			{@const method = deviceConfig.get('recording.method')}
 			<ManualSelectRecordingDevice
-				bind:selected={
-					() => settings.value[`recording.${method}.deviceId`],
-					(selected) =>
-						settings.updateKey(`recording.${method}.deviceId`, selected)
-				}
+				bind:selected={() => {
+					const selected = getManualDeviceId(method);
+					return selected ? asDeviceIdentifier(selected) : null;
+					},
+					(selected) => setManualDeviceId(method, selected)}
 			/>
-		{:else if settings.value['recording.mode'] === 'vad'}
+		{:else if settings.get('recording.mode') === 'vad'}
 			{#if IS_LINUX}
 				<Alert.Root class="border-red-500/20 bg-red-500/5">
 					<InfoIcon class="size-4 text-red-600 dark:text-red-400" />
@@ -304,31 +333,30 @@
 			{/if}
 
 			<VadSelectRecordingDevice
-				bind:selected={
-					() => settings.value['recording.navigator.deviceId'],
+				bind:selected={() => {
+					const selected = deviceConfig.get('recording.navigator.deviceId');
+					return selected ? asDeviceIdentifier(selected) : null;
+					},
 					(selected) =>
-						settings.updateKey('recording.navigator.deviceId', selected)
-				}
+						deviceConfig.set('recording.navigator.deviceId', selected)}
 			/>
 		{/if}
 
-		{#if settings.value['recording.mode'] === 'manual' || settings.value['recording.mode'] === 'vad'}
+		{#if settings.get('recording.mode') === 'manual' || settings.get('recording.mode') === 'vad'}
 			{#if isUsingNavigatorMethod}
 				<!-- Browser method settings -->
 				<Field.Field>
 					<Field.Label for="bit-rate">Bitrate</Field.Label>
 					<Select.Root
 						type="single"
-						bind:value={
-							() => settings.value['recording.navigator.bitrateKbps'],
+						bind:value={() => deviceConfig.get('recording.navigator.bitrateKbps'),
 							(selected) => {
 								if (selected)
-									settings.updateKey(
+							deviceConfig.set(
 										'recording.navigator.bitrateKbps',
 										selected,
 									);
-							}
-						}
+							}}
 					>
 						<Select.Trigger id="bit-rate" class="w-full">
 							{bitrateLabel ?? 'Select a bitrate'}
@@ -346,30 +374,22 @@
 				</Field.Field>
 			{:else if isUsingFfmpegMethod}
 				<!-- FFmpeg method settings -->
-				<div class="space-y-2">
-					<label for="output-folder" class="text-sm font-medium">
-						Recording Output Folder
-					</label>
+				<Field.Field>
+					<Field.Label for="output-folder">Recording Output Folder</Field.Label>
 					<DesktopOutputFolder></DesktopOutputFolder>
-					<p class="text-xs text-muted-foreground">
+					<Field.Description>
 						Choose where to save your recordings. Default location is secure and
 						managed by the app.
-					</p>
-				</div>
+					</Field.Description>
+				</Field.Field>
 
 				<FfmpegCommandBuilder
-					bind:globalOptions={
-						() => settings.value['recording.ffmpeg.globalOptions'],
-						(v) => settings.updateKey('recording.ffmpeg.globalOptions', v)
-					}
-					bind:inputOptions={
-						() => settings.value['recording.ffmpeg.inputOptions'],
-						(v) => settings.updateKey('recording.ffmpeg.inputOptions', v)
-					}
-					bind:outputOptions={
-						() => settings.value['recording.ffmpeg.outputOptions'],
-						(v) => settings.updateKey('recording.ffmpeg.outputOptions', v)
-					}
+					bind:globalOptions={() => deviceConfig.get('recording.ffmpeg.globalOptions'),
+						(v) => deviceConfig.set('recording.ffmpeg.globalOptions', v)}
+					bind:inputOptions={() => deviceConfig.get('recording.ffmpeg.inputOptions'),
+						(v) => deviceConfig.set('recording.ffmpeg.inputOptions', v)}
+					bind:outputOptions={() => deviceConfig.get('recording.ffmpeg.outputOptions'),
+						(v) => deviceConfig.set('recording.ffmpeg.outputOptions', v)}
 				/>
 			{:else}
 				<!-- CPAL method settings -->
@@ -377,13 +397,11 @@
 					<Field.Label for="sample-rate">Sample Rate</Field.Label>
 					<Select.Root
 						type="single"
-						bind:value={
-							() => settings.value['recording.cpal.sampleRate'],
+						bind:value={() => deviceConfig.get('recording.cpal.sampleRate'),
 							(selected) => {
 								if (selected)
-									settings.updateKey('recording.cpal.sampleRate', selected);
-							}
-						}
+							deviceConfig.set('recording.cpal.sampleRate', selected);
+							}}
 					>
 						<Select.Trigger id="sample-rate" class="w-full">
 							{sampleRateLabel ?? 'Select sample rate'}
@@ -399,16 +417,14 @@
 					</Field.Description>
 				</Field.Field>
 
-				<div class="space-y-2">
-					<label for="output-folder" class="text-sm font-medium">
-						Recording Output Folder
-					</label>
+				<Field.Field>
+					<Field.Label for="output-folder">Recording Output Folder</Field.Label>
 					<DesktopOutputFolder></DesktopOutputFolder>
-					<p class="text-xs text-muted-foreground">
+					<Field.Description>
 						Choose where to save your recordings. Default location is secure and
 						managed by the app.
-					</p>
-				</div>
+					</Field.Description>
+				</Field.Field>
 			{/if}
 		{/if}
 	</Field.Group>

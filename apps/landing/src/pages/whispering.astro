@@ -1,33 +1,27 @@
 ---
-import { VERSIONS } from '@epicenter/constants/versions';
-import BaseLayout from '../layouts/BaseLayout.astro';
+import { VERSION } from '@epicenter/constants/versions';
 import { Button } from '@epicenter/ui/button';
 import * as Card from '@epicenter/ui/card';
-import { Badge } from '@epicenter/ui/badge';
-import MicrophoneHero from '../components/whispering/MicrophoneHero.svelte';
-import OSDetector from '../components/whispering/OSDetector.svelte';
-import GitHubStars from '../components/whispering/GitHubStars.astro';
 import {
+	Apple as AppleIcon,
 	ArrowRight as ArrowRightIcon,
 	Check as CheckIcon,
-	Mic as MicIcon,
-	Zap as ZapIcon,
-	Shield as ShieldIcon,
-	Globe as GlobeIcon,
-	Download as DownloadIcon,
-	Github as GithubIcon,
-	Monitor as MonitorIcon,
-	Apple as AppleIcon,
-	Lock as LockIcon,
-	Terminal as TerminalIcon,
-	Star as StarIcon,
 	ChevronDown as ChevronDownIcon,
-	Menu as MenuIcon,
+	Download as DownloadIcon,
 	ExternalLink as ExternalLinkIcon,
-	Cloud as CloudIcon,
+	Github as GithubIcon,
+	Globe as GlobeIcon,
 	Lightbulb as LightbulbIcon,
-	DollarSign as DollarSignIcon,
+	Lock as LockIcon,
+	Mic as MicIcon,
+	Monitor as MonitorIcon,
+	Terminal as TerminalIcon,
+	Zap as ZapIcon,
 } from '@lucide/astro';
+import GitHubStars from '../components/whispering/GitHubStars.astro';
+import MicrophoneHero from '../components/whispering/MicrophoneHero.svelte';
+import OSDetector from '../components/whispering/OSDetector.svelte';
+import BaseLayout from '../layouts/BaseLayout.astro';
 
 const features = [
 	{
@@ -114,14 +108,14 @@ const downloads = [
 		description: 'Native app for all Macs',
 		icon: AppleIcon,
 		isMacOS: true,
-		appleSiliconUrl: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSIONS.whispering}/Whispering_${VERSIONS.whispering}_aarch64.dmg`,
-		intelUrl: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSIONS.whispering}/Whispering_${VERSIONS.whispering}_x64.dmg`,
+		appleSiliconUrl: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSION}/Whispering_${VERSION}_aarch64.dmg`,
+		intelUrl: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSION}/Whispering_${VERSION}_x64.dmg`,
 	},
 	{
 		platform: 'Windows',
 		description: 'Windows 10/11',
 		icon: MonitorIcon,
-		url: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSIONS.whispering}/Whispering_${VERSIONS.whispering}_x64_en-US.msi`,
+		url: `https://github.com/EpicenterHQ/epicenter/releases/download/v${VERSION}/Whispering_${VERSION}_x64_en-US.msi`,
 		extension: '.msi',
 	},
 	{
@@ -256,12 +250,17 @@ const downloads = [
 						<iframe
 							src="https://www.youtube.com/embed/1jYgBMrfVZs?controls=1&showinfo=0&rel=0&modestbranding=1&color=white"
 							title="Whispering Setup Guide"
-							frameborder="0"
-							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+							allow="
+								accelerometer;
+								autoplay;
+								clipboard-write;
+								encrypted-media;
+								gyroscope;
+								picture-in-picture;
+							"
 							allowfullscreen
 							class="w-full h-full border-0"
-						>
-						</iframe>
+						> </iframe>
 					</div>
 				</div>
 			</div>
@@ -351,18 +350,17 @@ const downloads = [
 				</div>
 
 				<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-					{
-						features.map((feature, index) => {
+					{features.map((feature, index) => {
 							const Icon = feature.icon;
 							return (
 								<Card.Root
-									class={`text-center hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group cursor-default stagger-item stagger-delay-${index} border-0 shadow-sm`}
+									class={`group stagger-item cursor-default text-center transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg stagger-delay-${index} border-0 shadow-sm`}
 								>
 									<Card.Header>
-										<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors duration-300">
-											<Icon class="w-8 h-8 text-primary group-hover:scale-110 transition-transform duration-300" />
+										<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-colors duration-300 group-hover:bg-primary/20">
+											<Icon class="h-8 w-8 text-primary transition-transform duration-300 group-hover:scale-110" />
 										</div>
-										<Card.Title class="text-xl group-hover:text-primary transition-colors duration-300">
+										<Card.Title class="text-xl transition-colors duration-300 group-hover:text-primary">
 											{feature.title}
 										</Card.Title>
 									</Card.Header>
@@ -373,8 +371,7 @@ const downloads = [
 									</Card.Content>
 								</Card.Root>
 							);
-						})
-					}
+						})}
 				</div>
 			</div>
 		</section>
@@ -396,32 +393,31 @@ const downloads = [
 						<table class="w-full">
 							<thead class="bg-muted">
 								<tr>
-									<th class="px-6 py-5 text-left font-semibold text-base"
-										>Provider</th
-									>
-									<th class="px-6 py-5 text-left font-semibold text-base"
-										>Per Hour</th
-									>
-									<th class="px-6 py-5 text-left font-semibold text-base"
-										>Light Use</th
-									>
-									<th class="px-6 py-5 text-left font-semibold text-base"
-										>Heavy Use</th
-									>
-									<th class="px-6 py-5 text-left font-semibold text-base"
-										>Subscription</th
-									>
+									<th class="px-6 py-5 text-left font-semibold text-base">
+										Provider
+									</th>
+									<th class="px-6 py-5 text-left font-semibold text-base">
+										Per Hour
+									</th>
+									<th class="px-6 py-5 text-left font-semibold text-base">
+										Light Use
+									</th>
+									<th class="px-6 py-5 text-left font-semibold text-base">
+										Heavy Use
+									</th>
+									<th class="px-6 py-5 text-left font-semibold text-base">
+										Subscription
+									</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-border">
-								{
-									pricingData.map((row) => (
+								{pricingData.map((row) => (
 										<tr
 											class="hover:bg-muted/50"
 											style="transition: all 0.2s ease"
 										>
 											<td class="px-6 py-5 font-medium">{row.provider}</td>
-											<td class="px-6 py-5 text-2xl font-bold">
+											<td class="px-6 py-5 font-bold text-2xl">
 												{row.perHour}
 											</td>
 											<td class="px-6 py-5 text-foreground/75">
@@ -434,8 +430,7 @@ const downloads = [
 												{row.subscription}
 											</td>
 										</tr>
-									))
-								}
+									))}
 							</tbody>
 						</table>
 					</div>
@@ -456,18 +451,17 @@ const downloads = [
 				</div>
 
 				<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
-					{
-						downloads.map((download, index) => {
+					{downloads.map((download, index) => {
 							const Icon = download.icon;
 							return (
 								<Card.Root
-									class={`text-center hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group stagger-item stagger-delay-${index} border-0 shadow-sm`}
+									class={`group stagger-item text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg stagger-delay-${index} border-0 shadow-sm`}
 								>
 									<Card.Header>
-										<div class="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 group-hover:rotate-3 transition-all duration-300">
-											<Icon class="w-8 h-8 text-primary group-hover:scale-110 transition-transform duration-300" />
+										<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 transition-all duration-300 group-hover:rotate-3 group-hover:bg-primary/20">
+											<Icon class="h-8 w-8 text-primary transition-transform duration-300 group-hover:scale-110" />
 										</div>
-										<Card.Title class="text-xl group-hover:text-primary transition-colors duration-300">
+										<Card.Title class="text-xl transition-colors duration-300 group-hover:text-primary">
 											{download.platform}
 										</Card.Title>
 										<Card.Description>{download.description}</Card.Description>
@@ -477,19 +471,19 @@ const downloads = [
 											<div class="space-y-2">
 												<Button
 													href={download.appleSiliconUrl}
-													class="w-full min-h-[40px] group-hover:shadow-md transition-shadow duration-300"
+													class="min-h-[40px] w-full transition-shadow duration-300 group-hover:shadow-md"
 													size="sm"
 												>
-													<DownloadIcon class="w-3.5 h-3.5 mr-1.5 group-hover:translate-y-0.5 transition-transform duration-300" />
+													<DownloadIcon class="mr-1.5 h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-y-0.5" />
 													Apple Silicon
 												</Button>
 												<Button
 													href={download.intelUrl}
 													variant="secondary"
-													class="w-full min-h-[40px] group-hover:shadow-md transition-shadow duration-300"
+													class="min-h-[40px] w-full transition-shadow duration-300 group-hover:shadow-md"
 													size="sm"
 												>
-													<DownloadIcon class="w-3.5 h-3.5 mr-1.5 group-hover:translate-y-0.5 transition-transform duration-300" />
+													<DownloadIcon class="mr-1.5 h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-y-0.5" />
 													Intel
 												</Button>
 											</div>
@@ -497,34 +491,33 @@ const downloads = [
 											<Button
 												href={download.url}
 												variant="secondary"
-												class="w-full min-h-[44px] group-hover:shadow-md transition-shadow duration-300"
+												class="min-h-[44px] w-full transition-shadow duration-300 group-hover:shadow-md"
 											>
-												<ExternalLinkIcon class="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" />
+												<ExternalLinkIcon class="mr-2 h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
 												{download.extension}
 											</Button>
 										) : download.isReleases ? (
 											<Button
 												href={download.url}
 												variant="outline"
-												class="w-full min-h-[44px] group-hover:shadow-md transition-shadow duration-300"
+												class="min-h-[44px] w-full transition-shadow duration-300 group-hover:shadow-md"
 											>
-												<ExternalLinkIcon class="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform duration-300" />
+												<ExternalLinkIcon class="mr-2 h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
 												{download.extension}
 											</Button>
 										) : (
 											<Button
 												href={download.url}
-												class="w-full min-h-[44px] group-hover:shadow-md transition-shadow duration-300"
+												class="min-h-[44px] w-full transition-shadow duration-300 group-hover:shadow-md"
 											>
-												<DownloadIcon class="w-4 h-4 mr-2 group-hover:translate-y-1 transition-transform duration-300" />
+												<DownloadIcon class="mr-2 h-4 w-4 transition-transform duration-300 group-hover:translate-y-1" />
 												Download {download.extension}
 											</Button>
 										)}
 									</Card.Content>
 								</Card.Root>
 							);
-						})
-					}
+						})}
 				</div>
 
 				<!-- Version info -->
@@ -534,7 +527,7 @@ const downloads = [
 							<div
 								class="flex flex-wrap items-center justify-center gap-4 lg:gap-6 text-foreground/70"
 							>
-								<span class="font-medium">Version {VERSIONS.whispering}</span>
+								<span class="font-medium">Version {VERSION}</span>
 								<span class="hidden sm:inline">•</span>
 								<span>~22MB Install</span>
 								<span class="hidden sm:inline">•</span>
@@ -562,14 +555,13 @@ const downloads = [
 				</div>
 
 				<div class="space-y-6">
-					{
-						faqItems.map((item) => (
-							<Card.Root class="hover:shadow-md transition-all duration-200 border-0 shadow-sm">
+					{faqItems.map((item) => (
+							<Card.Root class="border-0 shadow-sm transition-all duration-200 hover:shadow-md">
 								<Card.Header>
 									<details class="group">
-										<summary class="font-semibold cursor-pointer flex items-center justify-between text-lg">
+										<summary class="flex cursor-pointer items-center justify-between font-semibold text-lg">
 											<span>{item.question}</span>
-											<ChevronDownIcon class="w-5 h-5 text-foreground/60 group-open:rotate-180 transition-transform shrink-0 ml-4" />
+											<ChevronDownIcon class="ml-4 h-5 w-5 shrink-0 text-foreground/60 transition-transform group-open:rotate-180" />
 										</summary>
 										<Card.Description class="mt-6 leading-relaxed">
 											{item.answer}
@@ -577,8 +569,7 @@ const downloads = [
 									</details>
 								</Card.Header>
 							</Card.Root>
-						))
-					}
+						))}
 				</div>
 			</div>
 		</section>
@@ -672,8 +663,8 @@ const downloads = [
 
 					<!-- Copyright -->
 					<div class="text-foreground/65 text-sm border-t pt-8">
-						© {new Date().getFullYear()} Whispering. AGPL-3.0 License. Built for the
-						open source community.
+						© {new Date().getFullYear()} Whispering. AGPL-3.0 License. Built for
+						the open source community.
 					</div>
 				</div>
 			</div>
@@ -784,7 +775,7 @@ const downloads = [
 	}
 
 	.grid-hero::before {
-		content: '';
+		content: "";
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -801,7 +792,7 @@ const downloads = [
 	}
 
 	.grid-hero::after {
-		content: '';
+		content: "";
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -830,12 +821,12 @@ const downloads = [
 	}
 
 	/* Navigation link hover effect - only for nav menu links */
-	nav a[href^='#'] {
+	nav a[href^="#"] {
 		position: relative;
 	}
 
-	nav a[href^='#']::after {
-		content: '';
+	nav a[href^="#"]::after {
+		content: "";
 		position: absolute;
 		bottom: 0;
 		left: 50%;
@@ -846,7 +837,7 @@ const downloads = [
 		transform: translateX(-50%);
 	}
 
-	nav a[href^='#']:hover::after {
+	nav a[href^="#"]:hover::after {
 		width: 100%;
 	}
 
@@ -969,8 +960,8 @@ const downloads = [
 	}
 
 	.github-star-button.compact {
-		min-width: auto !important;
-		padding: 0.5rem !important;
+		min-width: auto;
+		padding: 0.5rem;
 	}
 
 	#floating-github-button.scrolled {
@@ -984,11 +975,11 @@ const downloads = [
 	/* Ensure smooth transitions on mobile */
 	@media (max-width: 1023px) {
 		.github-text {
-			display: none !important;
+			display: none;
 		}
 
 		.github-star-button.compact {
-			padding: 0.4rem !important;
+			padding: 0.4rem;
 		}
 	}
 </style>

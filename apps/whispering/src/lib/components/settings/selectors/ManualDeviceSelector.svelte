@@ -1,25 +1,25 @@
 <script lang="ts">
+	import { Badge } from '@epicenter/ui/badge';
 	import { Button } from '@epicenter/ui/button';
 	import * as Command from '@epicenter/ui/command';
-	import * as Popover from '@epicenter/ui/popover';
 	import { useCombobox } from '@epicenter/ui/hooks';
-	import { rpc } from '$lib/query';
-	import { settings } from '$lib/state/settings.svelte';
+	import * as Popover from '@epicenter/ui/popover';
+	import { Spinner } from '@epicenter/ui/spinner';
 	import { cn } from '@epicenter/ui/utils';
-	import { createQuery } from '@tanstack/svelte-query';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import MicIcon from '@lucide/svelte/icons/mic';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { Spinner } from '@epicenter/ui/spinner';
-	import { Badge } from '@epicenter/ui/badge';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { rpc } from '$lib/query';
+	import { deviceConfig } from '$lib/state/device-config.svelte';
 
 	const combobox = useCombobox();
 
-	const selectedMethod = $derived(settings.value['recording.method']);
+	const selectedMethod = $derived(deviceConfig.get('recording.method'));
 
 	// Get the device ID for the current method
 	const selectedDeviceId = $derived(
-		settings.value[`recording.${selectedMethod}.deviceId`],
+		deviceConfig.get(`recording.${selectedMethod}.deviceId`),
 	);
 
 	const isDeviceSelected = $derived(!!selectedDeviceId);
@@ -87,13 +87,13 @@
 
 				<!-- Recording Method Selection -->
 				<Command.Group heading="Recording Method">
-					{#each Object.entries(RECORDING_METHODS) as [methodKey, method]}
+					{#each Object.entries(RECORDING_METHODS) as [ methodKey, method ]}
 						{@const isSelected = selectedMethod === methodKey}
 						{#if method.isAvailable}
 							<Command.Item
 								value={`method-${methodKey} ${method.label} ${method.description}`}
 								onSelect={() => {
-									settings.updateKey(
+						deviceConfig.set(
 										'recording.method',
 										methodKey as keyof typeof RECORDING_METHODS,
 									);
@@ -144,7 +144,7 @@
 								value={`device-${device.id} ${device.label}`}
 								onSelect={() => {
 									const currentDeviceId = selectedDeviceId;
-									settings.updateKey(
+						deviceConfig.set(
 										`recording.${selectedMethod}.deviceId`,
 										currentDeviceId === device.id ? null : device.id,
 									);
